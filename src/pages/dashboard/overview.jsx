@@ -7,32 +7,33 @@ import Typography from "@mui/material/Typography";
 
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
 import { Iconify } from "@/components/core";
+import { StatCard } from "@/components/dashboard";
 
 const STATS = [
 	{
 		title: "Contratos en seguimiento",
-		value: "1,247",
+		value: 1247,
 		icon: "solar:document-bold-duotone",
 		color: "#2E3B4E",
 		bgcolor: "rgba(46, 59, 78, 0.08)",
 	},
 	{
 		title: "Alertas activas",
-		value: "23",
+		value: 23,
 		icon: "solar:danger-triangle-bold-duotone",
 		color: "#F2A900",
 		bgcolor: "rgba(242, 169, 0, 0.08)",
 	},
 	{
 		title: "Análisis de IA completados",
-		value: "856",
+		value: 856,
 		icon: "solar:cpu-bolt-bold-duotone",
 		color: "#4A6741",
 		bgcolor: "rgba(74, 103, 65, 0.08)",
 	},
 	{
 		title: "Veedores registrados",
-		value: "3,412",
+		value: 3412,
 		icon: "solar:users-group-rounded-bold-duotone",
 		color: "#1976D2",
 		bgcolor: "rgba(25, 118, 210, 0.08)",
@@ -56,31 +57,7 @@ export default function OverviewPage() {
 			<Grid container spacing={3}>
 				{STATS.map((stat) => (
 					<Grid size={{ xs: 12, sm: 6, md: 3 }} key={stat.title}>
-						<Card>
-							<CardContent>
-								<Stack direction="row" alignItems="center" spacing={2}>
-									<Box
-										sx={{
-											width: 56,
-											height: 56,
-											borderRadius: 2,
-											display: "flex",
-											alignItems: "center",
-											justifyContent: "center",
-											bgcolor: stat.bgcolor,
-										}}
-									>
-										<Iconify icon={stat.icon} width={28} sx={{ color: stat.color }} />
-									</Box>
-									<Stack spacing={0.5}>
-										<Typography variant="h4">{stat.value}</Typography>
-										<Typography variant="caption" color="text.secondary">
-											{stat.title}
-										</Typography>
-									</Stack>
-								</Stack>
-							</CardContent>
-						</Card>
+						<StatCard stat={stat} />
 					</Grid>
 				))}
 			</Grid>
