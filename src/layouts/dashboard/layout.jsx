@@ -49,7 +49,7 @@ export function DashboardLayout({ children }) {
 	const drawerContent = (
 		<Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
 			<Box sx={{ p: 2.5 }}>
-				<Logo />
+				<Logo variant="dark" />
 			</Box>
 
 			<Divider />

@@ -47,12 +47,7 @@ export function AuthLayout({ children }) {
 				/>
 
 				<Stack spacing={4} alignItems="center" sx={{ position: "relative", zIndex: 1, maxWidth: 420, textAlign: "center" }}>
-					<Box
-						component="img"
-						src="/logo-helios.png"
-						alt="Helios - Sistema de Información"
-						sx={{ height: { xs: 60, md: 80 }, width: "auto", objectFit: "contain" }}
-					/>
+					<Logo disableLink sx={{ height: { xs: 60, md: 80 } }} />
 
 					<Typography variant="body1" sx={{ color: "rgba(255,255,255,0.7)", lineHeight: 1.8 }}>
 						Transparencia y veeduría ciudadana en los procesos de contratación de las Fuerzas Militares de Colombia.
@@ -92,7 +87,7 @@ export function AuthLayout({ children }) {
 				}}
 			>
 				<Box sx={{ position: "absolute", top: 24, left: { xs: 24, md: "auto" }, right: { md: 24 } }}>
-					<Logo />
+					<Logo variant="mini" sx={{ height: 36 }} />
 				</Box>
 
 				<Box sx={{ width: "100%", maxWidth: 480 }}>{children}</Box>

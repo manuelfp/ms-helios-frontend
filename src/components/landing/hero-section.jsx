@@ -4,7 +4,7 @@ import Container from "@mui/material/Container";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
-import { Iconify } from "@/components/core";
+import { Iconify, Logo } from "@/components/core";
 import { RouterLink } from "@/components/core/link";
 import { paths } from "@/paths";
 
@@ -57,15 +57,9 @@ export function HeroSection() {
 			<Container maxWidth="lg" sx={{ position: "relative", zIndex: 1 }}>
 				<Stack spacing={4} alignItems="center" textAlign="center" maxWidth={800} mx="auto">
 					{/* Logo principal Helios */}
-					<Box
-						component="img"
-						src="/logo-helios.png"
-						alt="Helios - Sistema de Información"
-						sx={{
-							height: { xs: 60, md: 90 },
-							width: "auto",
-							objectFit: "contain",
-						}}
+					<Logo
+						disableLink
+						sx={{ height: { xs: 60, md: 90 } }}
 					/>
 
 					<Typography

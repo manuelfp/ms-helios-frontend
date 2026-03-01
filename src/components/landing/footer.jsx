@@ -4,6 +4,8 @@ import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
+import { Logo } from "@/components/core";
+
 export function Footer() {
 	return (
 		<Box component="footer" sx={{ bgcolor: "#171F2C", color: "rgba(255,255,255,0.6)", py: 4 }}>
@@ -15,18 +17,13 @@ export function Footer() {
 					spacing={3}
 				>
 					<Stack direction="row" alignItems="center" spacing={3}>
-						<Box
-							component="img"
-							src="/logo-helios.png"
-							alt="Helios - Sistema de Información"
-							sx={{ height: 32, width: "auto", objectFit: "contain" }}
-						/>
+						<Logo sx={{ height: 32 }} />
 						<Divider orientation="vertical" flexItem sx={{ borderColor: "rgba(255,255,255,0.15)" }} />
 						<Box
 							component="img"
 							src="/logo-mindefensa.png"
 							alt="Ministerio de Defensa"
-							sx={{ height: 36, width: "auto", objectFit: "contain", filter: "brightness(0) invert(1)", opacity: 0.6 }}
+							sx={{ height: 36, width: "auto", objectFit: "contain", opacity: 0.6 }}
 						/>
 					</Stack>
 
