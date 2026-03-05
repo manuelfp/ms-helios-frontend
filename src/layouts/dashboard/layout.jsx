@@ -151,7 +151,7 @@ export function DashboardLayout({ children }) {
 	};
 
 	return (
-		<Box sx={{ display: "flex", minHeight: "100vh" }}>
+		<Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
 			{/* Sidebar - desktop */}
 			<Box
 				sx={{
@@ -233,7 +233,7 @@ export function DashboardLayout({ children }) {
 			</Drawer>
 
 			{/* Main content */}
-			<Box sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+			<Box sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
 				<AppBar
 					position="sticky"
 					color="inherit"
@@ -281,7 +281,7 @@ export function DashboardLayout({ children }) {
 					</Toolbar>
 				</AppBar>
 
-				<Box component="main" sx={{ flex: 1, p: { xs: 2, md: 3 } }}>
+				<Box component="main" sx={{ flex: 1, p: { xs: 2, md: 3 }, overflow: "auto", minHeight: 0, position: "relative" }}>
 					{children}
 				</Box>
 			</Box>
