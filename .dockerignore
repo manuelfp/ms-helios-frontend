@@ -3,10 +3,9 @@ dist
 dist-ssr
 .git
 .gitignore
-.env
-.env.*
 *.md
 .vscode
 .idea
 .DS_Store
 .cursor
+.env
