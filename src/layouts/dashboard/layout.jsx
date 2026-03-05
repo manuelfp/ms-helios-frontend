@@ -27,9 +27,11 @@ const DRAWER_WIDTH = 260;
 const DRAWER_WIDTH_COLLAPSED = 77;
 
 const NAV_ITEMS = [
-	{ title: "Overview", path: paths.dashboard.root, icon: "solar:chart-bold-duotone" },
+	{ title: "Dashboard", path: paths.dashboard.root, icon: "solar:chart-bold-duotone" },
 	{ title: "Contratos", path: paths.dashboard.contratos, icon: "solar:document-bold-duotone" },
-	{ title: "Alertas IA", path: paths.dashboard.alertas, icon: "solar:danger-triangle-bold-duotone" },
+	{ title: "Consulta IA", path: paths.dashboard.consultaIA, icon: "solar:magic-stick-3-bold-duotone" },
+	{ title: "Investigación", path: paths.dashboard.investigacion, icon: "solar:magnifer-bold-duotone" },
+	{ title: "Estadísticas", path: paths.dashboard.estadisticas, icon: "solar:graph-new-bold-duotone" },
 ];
 
 function SidebarContent({ collapsed, pathname, onNavigate, onLogout }) {

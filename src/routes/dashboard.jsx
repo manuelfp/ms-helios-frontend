@@ -8,7 +8,9 @@ import { DashboardLayout } from "@/layouts/dashboard/layout";
 
 const OverviewPage = lazy(() => import("@/pages/dashboard/overview"));
 const ContratosPage = lazy(() => import("@/pages/dashboard/contratos"));
-const AlertasPage = lazy(() => import("@/pages/dashboard/alertas"));
+const ConsultaIAPage = lazy(() => import("@/pages/dashboard/consulta-ia"));
+const InvestigacionPage = lazy(() => import("@/pages/dashboard/investigacion"));
+const EstadisticasPage = lazy(() => import("@/pages/dashboard/estadisticas"));
 
 export const dashboardRoutes = [
 	{
@@ -25,7 +27,9 @@ export const dashboardRoutes = [
 		children: [
 			{ index: true, element: <OverviewPage /> },
 			{ path: "contratos", element: <ContratosPage /> },
-			{ path: "alertas", element: <AlertasPage /> },
+			{ path: "consulta-ia", element: <ConsultaIAPage /> },
+			{ path: "investigacion", element: <InvestigacionPage /> },
+			{ path: "estadisticas", element: <EstadisticasPage /> },
 		],
 	},
 ];

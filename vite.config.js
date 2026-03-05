@@ -15,6 +15,16 @@ export default defineConfig({
 	},
 	server: {
 		port: 3000,
+		proxy: {
+			"/neo4j": {
+				target: "http://localhost:4000",
+				changeOrigin: true,
+			},
+			"/status": {
+				target: "http://localhost:4000",
+				changeOrigin: true,
+			},
+		},
 	},
 	preview: {
 		port: 3000,

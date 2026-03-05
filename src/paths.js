@@ -9,7 +9,9 @@ export const paths = {
 	dashboard: {
 		root: "/dashboard",
 		contratos: "/dashboard/contratos",
-		alertas: "/dashboard/alertas",
+		consultaIA: "/dashboard/consulta-ia",
+		investigacion: "/dashboard/investigacion",
+		estadisticas: "/dashboard/estadisticas",
 	},
 	notFound: "/404",
 };
