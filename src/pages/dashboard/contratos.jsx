@@ -5,9 +5,12 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -38,6 +41,33 @@ import { fCurrency, fNumber } from "@/utils/format";
 const PRIMARY = "#2E3B4E";
 const SECONDARY = "#F2A900";
 
+function neo4jInt(v) {
+	if (v == null) return null;
+	if (typeof v === "number") return v;
+	if (typeof v === "object" && "low" in v) return v.high * 2147483648 + (v.low >>> 0);
+	return Number(v) || null;
+}
+
+function neo4jDate(v) {
+	if (v == null) return null;
+	if (typeof v === "string") return v;
+	if (typeof v === "object" && v.year) {
+		const y = neo4jInt(v.year);
+		const m = String(neo4jInt(v.month) || 1).padStart(2, "0");
+		const d = String(neo4jInt(v.day) || 1).padStart(2, "0");
+		return `${y}-${m}-${d}`;
+	}
+	return null;
+}
+
+function resolveNeo4jValue(value) {
+	if (value == null) return null;
+	if (typeof value !== "object") return value;
+	if ("year" in value && "month" in value) return neo4jDate(value);
+	if ("low" in value && "high" in value) return neo4jInt(value);
+	return value;
+}
+
 const SUMMARY_CARDS = [
 	{ key: "total_contratos", label: "Total Contratos", icon: "solar:document-bold-duotone", color: PRIMARY, format: fNumber },
 	{ key: "total_proveedores", label: "Total Proveedores", icon: "solar:users-group-rounded-bold-duotone", color: "#5C6BC0", format: fNumber },
@@ -47,11 +77,13 @@ const SUMMARY_CARDS = [
 ];
 
 const CONTRACT_COLUMNS = [
-	{ key: "Descripcion_del_Proceso", label: "Descripción" },
-	{ key: "Nombre_Entidad", label: "Entidad" },
-	{ key: "Estado_del_Proceso", label: "Estado" },
-	{ key: "Tipo_de_Contrato", label: "Tipo" },
-	{ key: "Valor_Total", label: "Valor", align: "right", format: fCurrency },
+	{ key: "Objeto", label: "Descripción", maxWidth: 300 },
+	{ key: "Entidad", label: "Entidad" },
+	{ key: "Proveedor", label: "Proveedor" },
+	{ key: "Estado_Contrato", label: "Estado" },
+	{ key: "Tipo_Contrato", label: "Tipo" },
+	{ key: "Fecha_Firma", label: "Fecha Firma", isDate: true },
+	{ key: "Valor_Contrato", label: "Valor", align: "right", isCurrency: true },
 ];
 
 function useDebouncedCatalog(fetchFn, delay = 300) {
@@ -86,13 +118,154 @@ function useDebouncedCatalog(fetchFn, delay = 300) {
 	return { options, loading, search };
 }
 
+const NODE_TYPE_LABELS = {
+	CONTRATOS: { label: "Contrato", icon: "solar:document-bold-duotone", color: "#F2A900" },
+	NITS: { label: "Entidad / NIT", icon: "solar:buildings-bold-duotone", color: "#5C6BC0" },
+	DEPARTAMENTO: { label: "Departamento", icon: "solar:map-bold-duotone", color: "#66BB6A" },
+	CIUDAD: { label: "Ciudad", icon: "solar:map-point-bold-duotone", color: "#29B6F6" },
+	PROVEEDOR: { label: "Proveedor", icon: "solar:user-bold-duotone", color: "#EF5350" },
+	ADJUDICADOR: { label: "Adjudicador", icon: "solar:user-check-bold-duotone", color: "#AB47BC" },
+	FUERZA: { label: "Fuerza", icon: "solar:shield-bold-duotone", color: "#4A6741" },
+};
+
+const PROPERTY_LABELS = {
+	Objeto: "Descripción / Objeto",
+	Entidad: "Entidad",
+	Proveedor: "Proveedor",
+	Estado_Contrato: "Estado",
+	Tipo_Contrato: "Tipo de contrato",
+	Justificacion_Modalidad: "Modalidad",
+	Valor_Contrato: "Valor contrato",
+	Valor_Pago_Adelantado: "Valor pago adelantado",
+	Documento_Proveedor: "Doc. Proveedor",
+	Nit_Entidad: "NIT Entidad",
+	Ciudad: "Ciudad",
+	Departamento: "Departamento",
+	Fecha_Firma: "Fecha de firma",
+	Ano_Firma: "Año de firma",
+	Mes_Firma: "Mes de firma",
+	Ref_Contrato: "Ref. Contrato",
+	id_contrato: "ID Contrato",
+	Proceso_Compra: "Proceso de compra",
+	Nombre_Representante_Legal: "Representante legal",
+	Identificacion_Representante_Legal: "ID Rep. Legal",
+	Ordenador_Gasto: "Ordenador del gasto",
+	Documento_Ordenador_Gasto: "Doc. Ordenador Gasto",
+	Tipo_Doc_Proveedor: "Tipo doc. proveedor",
+	Cod_Categoria_Principal: "Categoría principal",
+	Hab_Pago_Adelantado: "Pago adelantado",
+	Dias_Adicionados: "Días adicionados",
+	Url_Proceso: "URL Proceso",
+	nombre: "Nombre",
+	Nombre: "Nombre",
+	Nombre_Entidad: "Nombre Entidad",
+	nit_entidad: "NIT Entidad",
+	Fuerza: "Fuerza",
+	razon_social: "Razón social",
+	codigo: "Código",
+	Codigo_Proveedor: "Código proveedor",
+};
+
+const HIDDEN_PROPS = new Set(["Id_Url", "Codigo_Proveedor"]);
+
+function formatPropertyValue(key, rawValue) {
+	const value = resolveNeo4jValue(rawValue);
+	if (value == null || value === "") return "—";
+	if (typeof value === "object") return JSON.stringify(value);
+	if (key.toLowerCase().includes("valor") && typeof value === "number") return fCurrency(value);
+	if (key.toLowerCase().includes("url") && typeof value === "string" && value.startsWith("HTTP"))
+		return value;
+	return String(value);
+}
+
+function NodeDetailCard({ node, onClose }) {
+	const group = node.group || (node.labels && node.labels[0]) || "OTRO";
+	const meta = NODE_TYPE_LABELS[group] || { label: group, icon: "solar:info-circle-bold-duotone", color: "#919EAB" };
+	const props = node.properties || {};
+	const entries = Object.entries(props).filter(
+		([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k),
+	);
+
+	return (
+		<Card
+			sx={{
+				height: "100%",
+				maxHeight: 580,
+				display: "flex",
+				flexDirection: "column",
+				borderTop: 3,
+				borderColor: meta.color,
+			}}
+		>
+			<CardContent sx={{ pb: 1 }}>
+				<Stack direction="row" alignItems="center" justifyContent="space-between">
+					<Stack direction="row" alignItems="center" spacing={1}>
+						<Iconify icon={meta.icon} width={24} sx={{ color: meta.color }} />
+						<Typography variant="subtitle1" fontWeight={700}>
+							{meta.label}
+						</Typography>
+					</Stack>
+					<IconButton size="small" onClick={onClose}>
+						<Iconify icon="solar:close-circle-bold-duotone" width={20} />
+					</IconButton>
+				</Stack>
+
+				{node.labels && node.labels.length > 0 && (
+					<Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: "wrap", gap: 0.5 }}>
+						{node.labels.map((lbl) => (
+							<Chip key={lbl} label={lbl} size="small" variant="outlined" sx={{ fontSize: 11 }} />
+						))}
+					</Stack>
+				)}
+			</CardContent>
+
+			<Divider />
+
+			<Box sx={{ flex: 1, overflow: "auto", px: 2, py: 1.5 }}>
+				{entries.length === 0 ? (
+					<Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: "center" }}>
+						Sin propiedades disponibles
+					</Typography>
+				) : (
+					<Stack spacing={1.5}>
+						{entries.map(([key, value]) => (
+							<Box key={key}>
+								<Typography variant="caption" color="text.disabled" sx={{ fontSize: 11 }}>
+									{PROPERTY_LABELS[key] || key.replace(/_/g, " ")}
+								</Typography>
+								<Typography
+									variant="body2"
+									sx={{
+										wordBreak: "break-word",
+										fontWeight: key.toLowerCase().includes("valor") ? 600 : 400,
+									}}
+								>
+									{formatPropertyValue(key, value)}
+								</Typography>
+							</Box>
+						))}
+					</Stack>
+				)}
+			</Box>
+
+			<Divider />
+
+			<Box sx={{ px: 2, py: 1 }}>
+				<Typography variant="caption" color="text.disabled" sx={{ fontSize: 10, fontFamily: "monospace" }}>
+					ID: {node.id}
+				</Typography>
+			</Box>
+		</Card>
+	);
+}
+
 export default function ContratosPage() {
 	const [fuerzas, setFuerzas] = useState([]);
 	const [anios, setAnios] = useState([]);
 
 	const [filters, setFilters] = useState({
 		fuerza: "",
-		ano: "",
+		ano: 2025,
 		entidad: "",
 		ciudad: "",
 		proveedor: "",
@@ -103,6 +276,7 @@ export default function ContratosPage() {
 	const [searching, setSearching] = useState(false);
 	const [error, setError] = useState(null);
 	const [result, setResult] = useState(null);
+	const [selectedNode, setSelectedNode] = useState(null);
 
 	const entidadCatalog = useDebouncedCatalog(getCatalogEntidades);
 	const ciudadCatalog = useDebouncedCatalog(getCatalogCiudades);
@@ -123,6 +297,7 @@ export default function ContratosPage() {
 	const handleSearch = async () => {
 		setSearching(true);
 		setError(null);
+		setSelectedNode(null);
 		try {
 			const payload = {};
 			if (filters.fuerza) payload.fuerza = filters.fuerza;
@@ -142,7 +317,10 @@ export default function ContratosPage() {
 		}
 	};
 
-	const summary = result?.summary?.resultSet?.[0] || null;
+	const rawSummary = result?.summary?.resultSet?.[0] || null;
+	const summary = rawSummary
+		? Object.fromEntries(Object.entries(rawSummary).map(([k, v]) => [k, resolveNeo4jValue(v)]))
+		: null;
 	const graphData = result?.graph || { nodes: [], links: [] };
 	const contractNodes = (graphData.nodes || []).filter(
 		(n) => n.group === "CONTRATOS" || (n.labels && n.labels.includes("CONTRATOS")),
@@ -199,10 +377,7 @@ export default function ContratosPage() {
 									label="Año"
 									onChange={(e) => setFilters((prev) => ({ ...prev, ano: e.target.value }))}
 								>
-									<MenuItem value="">
-										<em>Todos</em>
-									</MenuItem>
-									{anios.map((a) => (
+									{(anios.length ? anios : [2025]).map((a) => (
 										<MenuItem key={a} value={a}>
 											{a}
 										</MenuItem>
@@ -349,16 +524,33 @@ export default function ContratosPage() {
 				</Grid>
 			)}
 
-			{/* ─── Grafo ──────────────────────────────────────────── */}
+			{/* ─── Grafo + Detalle ───────────────────────────────── */}
 			{result && (
-				<Card>
-					<CardContent>
-						<Typography variant="h6" sx={{ mb: 2 }}>
-							Grafo de relaciones
-						</Typography>
-						<GraphViewer data={graphData} height={500} />
-					</CardContent>
-				</Card>
+				<Grid container spacing={2}>
+					<Grid size={{ xs: 12, md: selectedNode ? 8 : 12 }}>
+						<Card sx={{ height: "100%" }}>
+							<CardContent>
+								<Typography variant="h6" sx={{ mb: 2 }}>
+									Grafo de relaciones
+								</Typography>
+								<GraphViewer
+									data={graphData}
+									height={500}
+									onNodeClick={(node) =>
+										setSelectedNode((prev) => (prev?.id === node.id ? null : node))
+									}
+									selectedNodeId={selectedNode?.id}
+								/>
+							</CardContent>
+						</Card>
+					</Grid>
+
+					{selectedNode && (
+						<Grid size={{ xs: 12, md: 4 }}>
+							<NodeDetailCard node={selectedNode} onClose={() => setSelectedNode(null)} />
+						</Grid>
+					)}
+				</Grid>
 			)}
 
 			{/* ─── Tabla de contratos ─────────────────────────────── */}
@@ -381,20 +573,39 @@ export default function ContratosPage() {
 										))}
 									</TableRow>
 								</TableHead>
-								<TableBody>
-									{contractNodes.map((node, idx) => {
-										const props = node.properties || {};
-										return (
-											<TableRow key={node.id ?? idx} hover>
-												{CONTRACT_COLUMNS.map((col) => (
-													<TableCell key={col.key} align={col.align || "left"}>
-														{col.format ? col.format(props[col.key]) : props[col.key] ?? "—"}
+							<TableBody>
+								{contractNodes.map((node, idx) => {
+									const props = node.properties || {};
+									return (
+										<TableRow key={node.id ?? idx} hover>
+											{CONTRACT_COLUMNS.map((col) => {
+												const raw = props[col.key];
+												let display;
+												if (col.isDate) {
+													display = neo4jDate(raw) || "—";
+												} else if (col.isCurrency) {
+													display = fCurrency(neo4jInt(raw));
+												} else {
+													const resolved = resolveNeo4jValue(raw);
+													display = resolved != null ? String(resolved) : "—";
+												}
+												if (col.maxWidth && display.length > 80) {
+													display = display.slice(0, 77) + "...";
+												}
+												return (
+													<TableCell
+														key={col.key}
+														align={col.align || "left"}
+														sx={col.maxWidth ? { maxWidth: col.maxWidth, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } : undefined}
+													>
+														{display}
 													</TableCell>
-												))}
-											</TableRow>
-										);
-									})}
-								</TableBody>
+												);
+											})}
+										</TableRow>
+									);
+								})}
+							</TableBody>
 							</Table>
 						</TableContainer>
 					</CardContent>

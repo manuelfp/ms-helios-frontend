@@ -39,7 +39,7 @@ function getNodeLabel(node) {
 	);
 }
 
-export function GraphViewer({ data, height = 500, sx }) {
+export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeId }) {
 	const fgRef = useRef();
 
 	const graphData = {
@@ -53,28 +53,46 @@ export function GraphViewer({ data, height = 500, sx }) {
 		}
 	}, [graphData.nodes.length]);
 
+	const handleNodeClick = useCallback(
+		(node) => {
+			if (onNodeClick) onNodeClick(node);
+		},
+		[onNodeClick],
+	);
+
 	const paintNode = useCallback((node, ctx, globalScale) => {
 		const label = getNodeLabel(node);
 		const fontSize = Math.max(10 / globalScale, 2);
-		const radius = Math.max(5, Math.min(12, 4 + (node.val || 1)));
+		const isSelected = node.id === selectedNodeId;
+		const radius = Math.max(5, Math.min(12, 4 + (node.val || 1))) * (isSelected ? 1.4 : 1);
+
+		if (isSelected) {
+			ctx.beginPath();
+			ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI);
+			ctx.fillStyle = "rgba(242, 169, 0, 0.2)";
+			ctx.fill();
+			ctx.strokeStyle = "#F2A900";
+			ctx.lineWidth = 2 / globalScale;
+			ctx.stroke();
+		}
 
 		ctx.beginPath();
 		ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
 		ctx.fillStyle = node.color || "#919EAB";
 		ctx.fill();
-		ctx.strokeStyle = "rgba(255,255,255,0.6)";
-		ctx.lineWidth = 1 / globalScale;
+		ctx.strokeStyle = isSelected ? "#F2A900" : "rgba(255,255,255,0.6)";
+		ctx.lineWidth = (isSelected ? 2.5 : 1) / globalScale;
 		ctx.stroke();
 
-		if (globalScale > 0.8 && label) {
-			ctx.font = `${fontSize}px Inter, sans-serif`;
+		if ((globalScale > 0.8 || isSelected) && label) {
+			ctx.font = `${isSelected ? "bold " : ""}${fontSize}px Inter, sans-serif`;
 			ctx.textAlign = "center";
 			ctx.textBaseline = "top";
-			ctx.fillStyle = "#333";
+			ctx.fillStyle = isSelected ? "#2E3B4E" : "#333";
 			const shortLabel = label.length > 25 ? label.slice(0, 22) + "..." : label;
 			ctx.fillText(shortLabel, node.x, node.y + radius + 2);
 		}
-	}, []);
+	}, [selectedNodeId]);
 
 	if (!graphData.nodes.length) {
 		return (
@@ -92,10 +110,11 @@ export function GraphViewer({ data, height = 500, sx }) {
 				nodeCanvasObject={paintNode}
 				nodePointerAreaPaint={(node, color, ctx) => {
 					ctx.beginPath();
-					ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI);
+					ctx.arc(node.x, node.y, 10, 0, 2 * Math.PI);
 					ctx.fillStyle = color;
 					ctx.fill();
 				}}
+				onNodeClick={handleNodeClick}
 				linkColor={() => "rgba(0,0,0,0.15)"}
 				linkWidth={0.8}
 				linkDirectionalArrowLength={3}
