@@ -12,6 +12,9 @@ export const paths = {
 		consultaIA: "/dashboard/consulta-ia",
 		investigacion: "/dashboard/investigacion",
 		estadisticas: "/dashboard/estadisticas",
+		neo4jAlertasConcentracion: "/dashboard/neo4j-alertas-concentracion",
+		neo4jAlertasTempranas: "/dashboard/neo4j-alertas-tempranas",
+		neo4jAnalisisRelacion: "/dashboard/neo4j-analisis-relacion",
 	},
 	notFound: "/404",
 };

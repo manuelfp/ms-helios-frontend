@@ -32,6 +32,9 @@ const NAV_ITEMS = [
 	{ title: "Consulta IA", path: paths.dashboard.consultaIA, icon: "solar:magic-stick-3-bold-duotone" },
 	{ title: "Investigación", path: paths.dashboard.investigacion, icon: "solar:magnifer-bold-duotone" },
 	{ title: "Estadísticas", path: paths.dashboard.estadisticas, icon: "solar:graph-new-bold-duotone" },
+	{ title: "Alertas y Concentración", path: paths.dashboard.neo4jAlertasConcentracion, icon: "solar:bell-bing-bold-duotone" },
+	{ title: "Alertas Tempranas", path: paths.dashboard.neo4jAlertasTempranas, icon: "solar:shield-warning-bold-duotone" },
+	{ title: "Análisis de Relación", path: paths.dashboard.neo4jAnalisisRelacion, icon: "solar:users-group-rounded-bold-duotone" },
 ];
 
 function SidebarContent({ collapsed, pathname, onNavigate, onLogout }) {
