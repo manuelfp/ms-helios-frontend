@@ -28,10 +28,10 @@ const DRAWER_WIDTH_COLLAPSED = 77;
 
 const NAV_ITEMS = [
 	{ title: "Dashboard", path: paths.dashboard.root, icon: "solar:chart-bold-duotone" },
-	{ title: "Contratos", path: paths.dashboard.contratos, icon: "solar:document-bold-duotone" },
-	{ title: "Consulta IA", path: paths.dashboard.consultaIA, icon: "solar:magic-stick-3-bold-duotone" },
-	{ title: "Investigación", path: paths.dashboard.investigacion, icon: "solar:magnifer-bold-duotone" },
-	{ title: "Estadísticas", path: paths.dashboard.estadisticas, icon: "solar:graph-new-bold-duotone" },
+	// { title: "Contratos", path: paths.dashboard.contratos, icon: "solar:document-bold-duotone" },
+	// { title: "Consulta IA", path: paths.dashboard.consultaIA, icon: "solar:magic-stick-3-bold-duotone" },
+	// { title: "Investigación", path: paths.dashboard.investigacion, icon: "solar:magnifer-bold-duotone" },
+	// { title: "Estadísticas", path: paths.dashboard.estadisticas, icon: "solar:graph-new-bold-duotone" },
 	{ title: "Alertas y Concentración", path: paths.dashboard.neo4jAlertasConcentracion, icon: "solar:bell-bing-bold-duotone" },
 	{ title: "Alertas Tempranas", path: paths.dashboard.neo4jAlertasTempranas, icon: "solar:shield-warning-bold-duotone" },
 	{ title: "Análisis de Relación", path: paths.dashboard.neo4jAnalisisRelacion, icon: "solar:users-group-rounded-bold-duotone" },
