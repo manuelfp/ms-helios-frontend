@@ -1,5 +1,5 @@
 steps:
-  # build the container image
+    # build the container image
   - name: "gcr.io/cloud-builders/docker"
     args: [ "build", "-t", "us-central1-docker.pkg.dev/min-def-c2-dev/mindef-c2/ms-helios-frontend:$SHORT_SHA", "." ]
     # push container image
