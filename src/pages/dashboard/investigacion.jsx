@@ -25,8 +25,19 @@ import LoadingButton from "@mui/lab/LoadingButton";
 import { Iconify } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
+import { usePrivacy } from "@/hooks/use-privacy";
 import { investigate } from "@/services/helios-api";
-import { fCurrency, fNumber } from "@/utils/format";
+import { fCurrency, fNumber, maskDoc, maskName } from "@/utils/format";
+
+const SENSITIVE_KEYS = new Set([
+	"nombre", "Nombre", "nombre_proveedor", "Nombre_Proveedor", "razon_social",
+	"nombre_entidad", "Nombre_Entidad", "representante_legal", "Nombre_Representante_Legal",
+	"ordenador_gasto", "Ordenador_Gasto", "proveedor", "Proveedor", "entidad", "Entidad",
+]);
+const SENSITIVE_DOC_KEYS = new Set([
+	"documento", "Documento", "nit", "Nit", "nit_entidad", "Nit_Entidad",
+	"documento_proveedor", "Documento_Proveedor", "identificacion", "cc",
+]);
 
 const RISK_CONFIG = {
 	alto: { color: "error", label: "ALTO", icon: "solar:danger-bold" },
@@ -57,6 +68,7 @@ const SECTION_ICONS = {
 
 export default function InvestigacionPage() {
 	const { user } = useAuthContext();
+	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
 
 	const [documento, setDocumento] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -183,7 +195,7 @@ export default function InvestigacionPage() {
 					)}
 
 					{/* Profile */}
-					{analysis.perfil && <ProfileSection perfil={analysis.perfil} />}
+					{analysis.perfil && <ProfileSection perfil={analysis.perfil} obfuscate={obfuscate} visibleChars={visibleChars} visibleLastChars={visibleLastChars} maskChar={maskChar} />}
 
 					{/* Statistics */}
 					{analysis.estadisticas && <StatisticsSection stats={analysis.estadisticas} />}
@@ -192,7 +204,7 @@ export default function InvestigacionPage() {
 					{analysis.hallazgos?.length > 0 && <HallazgosSection hallazgos={analysis.hallazgos} />}
 
 					{/* Investigation sections */}
-					{results && <SectionsAccordion results={results} />}
+					{results && <SectionsAccordion results={results} obfuscate={obfuscate} visibleChars={visibleChars} visibleLastChars={visibleLastChars} maskChar={maskChar} />}
 
 					{/* Recommendations */}
 					{analysis.recomendaciones?.length > 0 && (
@@ -241,7 +253,7 @@ export default function InvestigacionPage() {
 
 // ---------------------------------------------------------------------------
 
-function ProfileSection({ perfil }) {
+function ProfileSection({ perfil, obfuscate, visibleChars, visibleLastChars, maskChar }) {
 	return (
 		<Card>
 			<CardContent>
@@ -261,13 +273,17 @@ function ProfileSection({ perfil }) {
 						{perfil.nombre && (
 							<Grid size={{ xs: 12, sm: 4 }}>
 								<Typography variant="caption" color="text.disabled">Nombre</Typography>
-								<Typography variant="body2" fontWeight={600}>{perfil.nombre}</Typography>
+								<Typography variant="body2" fontWeight={600}>
+								{obfuscate ? maskName(perfil.nombre, visibleChars, maskChar) : perfil.nombre}
+							</Typography>
 							</Grid>
 						)}
 						{perfil.documento && (
 							<Grid size={{ xs: 12, sm: 4 }}>
 								<Typography variant="caption" color="text.disabled">Documento</Typography>
-								<Typography variant="body2" fontWeight={600}>{perfil.documento}</Typography>
+								<Typography variant="body2" fontWeight={600}>
+								{obfuscate ? maskDoc(perfil.documento, visibleLastChars, maskChar) : perfil.documento}
+							</Typography>
 							</Grid>
 						)}
 					</Grid>
@@ -410,7 +426,7 @@ function HallazgosSection({ hallazgos }) {
 	);
 }
 
-function SectionsAccordion({ results }) {
+function SectionsAccordion({ results, obfuscate, visibleChars, visibleLastChars, maskChar }) {
 	const sectionKeys = Object.keys(results);
 	if (!sectionKeys.length) return null;
 
@@ -451,7 +467,7 @@ function SectionsAccordion({ results }) {
 							)}
 
 							{section.found && section.data ? (
-								<DataRenderer data={section.data} />
+								<DataRenderer data={section.data} obfuscate={obfuscate} visibleChars={visibleChars} visibleLastChars={visibleLastChars} maskChar={maskChar} />
 							) : (
 								<Typography variant="body2" color="text.disabled">
 									No se encontró información en esta sección.
@@ -465,7 +481,16 @@ function SectionsAccordion({ results }) {
 	);
 }
 
-function DataRenderer({ data }) {
+function DataRenderer({ data, obfuscate, visibleChars, visibleLastChars, maskChar }) {
+	function renderValue(k, v) {
+		if (v == null) return "—";
+		if (typeof v === "object") return JSON.stringify(v);
+		const str = String(v);
+		if (!obfuscate) return str;
+		if (SENSITIVE_KEYS.has(k)) return maskName(str, visibleChars, maskChar);
+		if (SENSITIVE_DOC_KEYS.has(k)) return maskDoc(str, visibleLastChars, maskChar);
+		return str;
+	}
 	if (Array.isArray(data)) {
 		return (
 			<Stack spacing={1}>
@@ -479,7 +504,7 @@ function DataRenderer({ data }) {
 											{k}:
 										</Typography>
 										<Typography variant="caption">
-											{v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v)}
+											{renderValue(k, v)}
 										</Typography>
 									</Stack>
 								))}
@@ -502,7 +527,7 @@ function DataRenderer({ data }) {
 							{k}:
 						</Typography>
 						<Typography variant="caption">
-							{v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v)}
+							{renderValue(k, v)}
 						</Typography>
 					</Stack>
 				))}
