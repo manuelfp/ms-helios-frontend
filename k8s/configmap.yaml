@@ -1,0 +1,18 @@
+# -----------------------------------------------------------------------------
+# ConfigMap: variables de entorno (deploy/ENV) inyectadas en el contenedor
+# El Deployment debe usar envFrom: - configMapRef: name: ms-helios-frontend-env
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-helios-frontend-configmap
+  namespace: helios
+data:
+  VITE_API_URL: "https://ms-backend-neo4j-308372338732.us-central1.run.app"
+  VITE_FIREBASE_API_KEY: "AIzaSyDaoH_a0FBwEQ4DJ3NPKT80Ko8RrUvYsRs"
+  VITE_FIREBASE_AUTH_DOMAIN: "mdn-transparencia-prd.firebaseapp.com"
+  VITE_FIREBASE_PROJECT_ID: "mdn-transparencia-prd"
+  VITE_FIREBASE_STORAGE_BUCKET: "mdn-transparencia-prd.firebasestorage.app"
+  VITE_FIREBASE_MESSAGING_SENDER_ID: "308372338732"
+  VITE_FIREBASE_APP_ID: "1:308372338732:web:b15794802029dbf548b989"
+  VITE_FIREBASE_MEASUREMENT_ID: "G-LDQ0RVZ827"    

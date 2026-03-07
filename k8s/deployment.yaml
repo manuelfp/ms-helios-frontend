@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-helios-frontend
+  namespace: sgda
+  labels:
+    app: ms-helios-frontend
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: ms-helios-frontend
+  template:
+    metadata:
+      labels:
+        app: ms-helios-frontend
+    spec:
+      containers:
+        - name: ms-helios-frontend
+          image: us-central1-docker.pkg.dev/mdn-transparencia-prd/mdn-transparencia-registry-prd/ms-helios-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              memory: "32Gi"
+              cpu: "8"
+            limits:
+              memory: "32Gi"
+              cpu: "8"
+          volumeMounts:
+            - name: data
+              mountPath: /opt/app/data
+          envFrom:
+            - configMapRef:
+                name: ms-helios-frontend-configmap
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 20Gi

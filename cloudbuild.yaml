@@ -1,10 +1,10 @@
 steps:
     # build the container image
   - name: "gcr.io/cloud-builders/docker"
-    args: [ "build", "-t", "us-central1-docker.pkg.dev/min-def-c2-dev/mindef-c2/ms-helios-frontend:$SHORT_SHA", "." ]
+    args: [ "build", "-t", "us-central1-docker.pkg.dev/mdn-transparencia-prd/mdn-transparencia-registry-prd/ms-helios-frontend:$SHORT_SHA", "." ]
     # push container image
   - name: "gcr.io/cloud-builders/docker"
-    args: [ "push", "us-central1-docker.pkg.dev/min-def-c2-dev/mindef-c2/ms-helios-frontend:$SHORT_SHA" ]
+    args: [ "push", "us-central1-docker.pkg.dev/mdn-transparencia-prd/mdn-transparencia-registry-prd/ms-helios-frontend:$SHORT_SHA" ]
     # deploy container image to CLOUD RUN
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
@@ -15,7 +15,7 @@ steps:
       - '--platform=managed'
       - '--port=80'
       - >-
-        --image=us-central1-docker.pkg.dev/min-def-c2-dev/mindef-c2/ms-helios-frontend:$SHORT_SHA
+        --image=us-central1-docker.pkg.dev/mdn-transparencia-prd/mdn-transparencia-registry-prd/ms-helios-frontend:$SHORT_SHA
       - >-
         --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$SHORT_SHA,gcb-build-id=$BUILD_ID
       - '--region=$_DEPLOY_REGION'

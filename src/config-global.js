@@ -1,11 +1,11 @@
 export const FIREBASE_API = {
-	apiKey: "AIzaSyCXMWaWjz-hlnRhshQALwiehhlmzzkArRI",
-	authDomain: "min-def-c2-dev.firebaseapp.com",
-	projectId: "min-def-c2-dev",
-	storageBucket: "min-def-c2-dev.firebasestorage.app",
-	messagingSenderId: "502931556239",
-	appId: "1:502931556239:web:ffa5afa8ffdd7314fdedfa",
-	measurementId: "G-4MMBK0DN5H",
+	apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+	authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+	projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+	storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+	messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+	appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+	measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
 };
 
 export const PATH_AFTER_LOGIN = "/dashboard";
