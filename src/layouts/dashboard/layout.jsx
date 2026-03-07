@@ -17,8 +17,12 @@ import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
+
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
 import { Iconify, Logo } from "@/components/core";
+import { usePrivacy } from "@/hooks/use-privacy";
 import { paths } from "@/paths";
 import { usePathname } from "@/routes/hooks/use-pathname";
 import { useRouter } from "@/routes/hooks/use-router";
@@ -130,6 +134,7 @@ function SidebarContent({ collapsed, pathname, onNavigate, onLogout }) {
 
 export function DashboardLayout({ children }) {
 	const { user, logout } = useAuthContext();
+	const { obfuscate, setObfuscate } = usePrivacy();
 	const router = useRouter();
 	const pathname = usePathname();
 	const [mobileOpen, setMobileOpen] = useState(false);
@@ -247,6 +252,30 @@ export function DashboardLayout({ children }) {
 						>
 							<Iconify icon="solar:hamburger-menu-bold-duotone" />
 						</IconButton>
+
+						<FormControlLabel
+							control={
+								<Switch
+									checked={obfuscate}
+									onChange={(e) => setObfuscate(e.target.checked)}
+									size="small"
+									color="warning"
+								/>
+							}
+							label={
+								<Stack direction="row" alignItems="center" spacing={0.5}>
+									<Iconify
+										icon={obfuscate ? "solar:eye-closed-bold-duotone" : "solar:eye-bold-duotone"}
+										width={16}
+										sx={{ color: obfuscate ? "warning.main" : "text.disabled" }}
+									/>
+									<Typography variant="caption" color={obfuscate ? "warning.main" : "text.disabled"} sx={{ display: { xs: "none", sm: "block" } }}>
+										Datos sensibles
+									</Typography>
+								</Stack>
+							}
+							sx={{ ml: 0 }}
+						/>
 
 						<Box sx={{ flex: 1 }} />
 

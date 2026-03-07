@@ -38,7 +38,8 @@ import {
 
 import { getDashboard, getCatalogAnios } from "@/services/helios-api";
 import { Iconify } from "@/components/core";
-import { fCurrency, fNumber } from "@/utils/format";
+import { usePrivacy } from "@/hooks/use-privacy";
+import { fCurrency, fNumber, maskDoc, maskName } from "@/utils/format";
 
 const PRIMARY = "#2E3B4E";
 const SECONDARY = "#F2A900";
@@ -122,6 +123,7 @@ function truncate(str, max = 30) {
 }
 
 export default function OverviewPage() {
+	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
 	const [selectedYear, setSelectedYear] = useState(2025);
 	const [data, setData] = useState(null);
 	const [loading, setLoading] = useState(true);
@@ -436,9 +438,9 @@ export default function OverviewPage() {
 										<TableRow key={row.documento || idx} hover>
 											<TableCell>{idx + 1}</TableCell>
 											<TableCell sx={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-												{row.proveedor}
+												{obfuscate ? maskName(row.proveedor, visibleChars, maskChar) : row.proveedor}
 											</TableCell>
-											<TableCell>{row.documento}</TableCell>
+											<TableCell>{obfuscate ? maskDoc(row.documento, visibleLastChars, maskChar) : row.documento}</TableCell>
 											<TableCell align="right">{fNumber(row.total_contratos)}</TableCell>
 											<TableCell align="right">{fCurrency(row.monto_total)}</TableCell>
 											<TableCell align="right">{fNumber(row.total_entidades)}</TableCell>

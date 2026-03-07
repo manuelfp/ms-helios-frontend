@@ -5,6 +5,15 @@ import Typography from "@mui/material/Typography";
 
 import ForceGraph2D from "react-force-graph-2d";
 
+import { usePrivacy } from "@/hooks/use-privacy";
+import { maskName } from "@/utils/format";
+
+// Grupos de nodos que contienen nombres de personas o empresas
+const SENSITIVE_GRAPH_GROUPS = new Set([
+	"PROVEEDOR", "NITS", "ADJUDICADOR", "REPRESENTANTE_LEGAL", "REVISOR_FISCAL",
+	"RUES", "SANCION_DISCIPLINARIA", "SANCION_FISCAL",
+]);
+
 const NODE_COLORS = {
 	CONTRATOS: "#F2A900",
 	NITS: "#5C6BC0",
@@ -41,6 +50,7 @@ function getNodeLabel(node) {
 
 export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeId }) {
 	const fgRef = useRef();
+	const { obfuscate, visibleChars, maskChar } = usePrivacy();
 
 	const graphData = {
 		nodes: (data?.nodes || []).map((n) => ({ ...n, color: getNodeColor(n) })),
@@ -61,7 +71,11 @@ export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeI
 	);
 
 	const paintNode = useCallback((node, ctx, globalScale) => {
-		const label = getNodeLabel(node);
+		const rawLabel = getNodeLabel(node);
+		const group = node.group || (node.labels && node.labels[0]) || "";
+		const label = obfuscate && SENSITIVE_GRAPH_GROUPS.has(group)
+			? maskName(rawLabel, visibleChars, maskChar)
+			: rawLabel;
 		const fontSize = Math.max(10 / globalScale, 2);
 		const isSelected = node.id === selectedNodeId;
 		const radius = Math.max(5, Math.min(12, 4 + (node.val || 1))) * (isSelected ? 1.4 : 1);
@@ -92,7 +106,7 @@ export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeI
 			const shortLabel = label.length > 25 ? label.slice(0, 22) + "..." : label;
 			ctx.fillText(shortLabel, node.x, node.y + radius + 2);
 		}
-	}, [selectedNodeId]);
+	}, [selectedNodeId, obfuscate, visibleChars, maskChar]);
 
 	if (!graphData.nodes.length) {
 		return (

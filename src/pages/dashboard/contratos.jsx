@@ -28,6 +28,7 @@ import LoadingButton from "@mui/lab/LoadingButton";
 
 import { Iconify } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
+import { usePrivacy } from "@/hooks/use-privacy";
 import {
 	graphSearch,
 	getCatalogFuerzas,
@@ -36,7 +37,7 @@ import {
 	getCatalogCiudades,
 	getCatalogProveedores,
 } from "@/services/helios-api";
-import { fCurrency, fNumber } from "@/utils/format";
+import { fCurrency, fNumber, maskDoc, maskName } from "@/utils/format";
 
 const PRIMARY = "#2E3B4E";
 const SECONDARY = "#F2A900";
@@ -168,17 +169,32 @@ const PROPERTY_LABELS = {
 
 const HIDDEN_PROPS = new Set(["Id_Url", "Codigo_Proveedor"]);
 
-function formatPropertyValue(key, rawValue) {
+const SENSITIVE_NAME_KEYS = new Set([
+	"Proveedor", "Entidad", "Nombre_Entidad", "Nombre_Representante_Legal",
+	"Ordenador_Gasto", "razon_social", "nombre", "Nombre",
+]);
+const SENSITIVE_DOC_KEYS = new Set([
+	"Documento_Proveedor", "Nit_Entidad", "Documento_Ordenador_Gasto",
+	"Identificacion_Representante_Legal", "nit_entidad",
+]);
+
+function formatPropertyValue(key, rawValue, obfuscate = false, visibleChars = 1, visibleLastChars = 3, maskChar = "▮") {
 	const value = resolveNeo4jValue(rawValue);
 	if (value == null || value === "") return "—";
 	if (typeof value === "object") return JSON.stringify(value);
 	if (key.toLowerCase().includes("valor") && typeof value === "number") return fCurrency(value);
 	if (key.toLowerCase().includes("url") && typeof value === "string" && value.startsWith("HTTP"))
 		return value;
-	return String(value);
+	const str = String(value);
+	if (obfuscate) {
+		if (SENSITIVE_NAME_KEYS.has(key)) return maskName(str, visibleChars, maskChar);
+		if (SENSITIVE_DOC_KEYS.has(key)) return maskDoc(str, visibleLastChars, maskChar);
+	}
+	return str;
 }
 
 function NodeDetailCard({ node, onClose }) {
+	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
 	const group = node.group || (node.labels && node.labels[0]) || "OTRO";
 	const meta = NODE_TYPE_LABELS[group] || { label: group, icon: "solar:info-circle-bold-duotone", color: "#919EAB" };
 	const props = node.properties || {};
@@ -240,7 +256,7 @@ function NodeDetailCard({ node, onClose }) {
 										fontWeight: key.toLowerCase().includes("valor") ? 600 : 400,
 									}}
 								>
-									{formatPropertyValue(key, value)}
+									{formatPropertyValue(key, value, obfuscate, visibleChars, visibleLastChars, maskChar)}
 								</Typography>
 							</Box>
 						))}
@@ -260,6 +276,7 @@ function NodeDetailCard({ node, onClose }) {
 }
 
 export default function ContratosPage() {
+	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
 	const [fuerzas, setFuerzas] = useState([]);
 	const [anios, setAnios] = useState([]);
 
@@ -588,6 +605,8 @@ export default function ContratosPage() {
 												} else {
 													const resolved = resolveNeo4jValue(raw);
 													display = resolved != null ? String(resolved) : "—";
+													if (obfuscate && SENSITIVE_NAME_KEYS.has(col.key)) display = maskName(display, visibleChars, maskChar);
+													else if (obfuscate && SENSITIVE_DOC_KEYS.has(col.key)) display = maskDoc(display, visibleLastChars, maskChar);
 												}
 												if (col.maxWidth && display.length > 80) {
 													display = display.slice(0, 77) + "...";
