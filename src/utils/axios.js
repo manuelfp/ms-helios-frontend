@@ -1,7 +1,9 @@
 import axios from "axios";
 
+import { API_BASE_URL } from "@/config-global";
+
 const axiosInstance = axios.create({
-	baseURL: "/",
+	baseURL: API_BASE_URL,
 	timeout: 120000,
 });
 

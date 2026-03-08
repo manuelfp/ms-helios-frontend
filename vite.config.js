@@ -17,11 +17,11 @@ export default defineConfig({
 		port: 3000,
 		proxy: {
 			"/neo4j": {
-				target: "https://ms-backend-neo4j-308372338732.us-central1.run.app",
+				target: "https://ms-backend-neo4j-502931556239.us-central1.run.app",
 				changeOrigin: true,
 			},
 			"/status": {
-				target: "https://ms-backend-neo4j-308372338732.us-central1.run.app",
+				target: "https://ms-backend-neo4j-502931556239.us-central1.run.app",
 				changeOrigin: true,
 			},
 		},

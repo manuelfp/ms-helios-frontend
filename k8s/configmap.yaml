@@ -8,7 +8,7 @@ metadata:
   name: ms-helios-frontend-configmap
   namespace: helios
 data:
-  VITE_API_URL: "https://ms-backend-neo4j-308372338732.us-central1.run.app"
+  VITE_API_BASE_URL: "https://ms-backend-neo4j-308372338732.us-central1.run.app"
   VITE_FIREBASE_API_KEY: "AIzaSyDaoH_a0FBwEQ4DJ3NPKT80Ko8RrUvYsRs"
   VITE_FIREBASE_AUTH_DOMAIN: "mdn-transparencia-prd.firebaseapp.com"
   VITE_FIREBASE_PROJECT_ID: "mdn-transparencia-prd"

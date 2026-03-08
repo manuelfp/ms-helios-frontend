@@ -14,4 +14,6 @@ export const FIREBASE_API = {
 	measurementId: getEnv("VITE_FIREBASE_MEASUREMENT_ID"),
 };
 
+export const API_BASE_URL = getEnv("VITE_API_BASE_URL") || "/";
+
 export const PATH_AFTER_LOGIN = "/dashboard";
