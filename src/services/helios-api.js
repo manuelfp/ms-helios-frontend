@@ -19,24 +19,16 @@ export const graphSearch = (filters = {}) =>
 export const investigate = (documento, user) =>
 	axios.post("/neo4j/investigate", { documento, user }).then((r) => r.data);
 
-/**
- * Stream-based investigation via SSE (POST /neo4j/investigate/stream).
- * Uses fetch + ReadableStream because EventSource only supports GET.
- *
- * @param {string} documento
- * @param {string} user
- * @param {object} handlers — callback map keyed by SSE event type
- * @param {AbortSignal} [signal] — optional abort signal to cancel
- * @returns {Promise<void>}
- */
-export async function investigateStream(documento, user, handlers = {}, signal) {
-	const base = axios.defaults.baseURL || "";
-	const url = `${base}/neo4j/investigate/stream`.replace(/^\/\//, "/");
+// ─── SSE helpers ──────────────────────────────────────────────────
+
+async function consumeSSE(url, { method = "GET", body, signal } = {}, handlers) {
+	const headers = { Accept: "text/event-stream" };
+	if (body) headers["Content-Type"] = "application/json";
 
 	const res = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-		body: JSON.stringify({ documento, user }),
+		method,
+		headers,
+		body: body ? JSON.stringify(body) : undefined,
 		signal,
 	});
 
@@ -70,6 +62,36 @@ export async function investigateStream(documento, user, handlers = {}, signal) 
 			}
 		}
 	}
+}
+
+function buildURL(path, params) {
+	const base = (axios.defaults.baseURL || "").replace(/\/$/, "");
+	const url = new URL(`${base}${path}`, window.location.origin);
+	if (params) Object.entries(params).forEach(([k, v]) => { if (v != null) url.searchParams.set(k, v); });
+	return url.toString();
+}
+
+/**
+ * Stream-based investigation via SSE (POST /neo4j/investigate/stream).
+ */
+export function investigateStream(documento, user, handlers = {}, signal) {
+	return consumeSSE(
+		buildURL("/neo4j/investigate/stream"),
+		{ method: "POST", body: { documento, user }, signal },
+		handlers,
+	);
+}
+
+/**
+ * Stream-based dashboard via SSE (GET /neo4j/stats/dashboard/stream).
+ * Each KPI arrives as a separate `kpi` event with { key, data }.
+ */
+export function dashboardStream(ano, handlers = {}, signal) {
+	return consumeSSE(
+		buildURL("/neo4j/stats/dashboard/stream", ano ? { ano } : {}),
+		{ method: "GET", signal },
+		handlers,
+	);
 }
 
 // ─── Catálogos ─────────────────────────────────────────────────────
