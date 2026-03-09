@@ -187,8 +187,8 @@ export default function OverviewPage() {
 	const montosPorAnio = tendencias.montos_por_anio || [];
 	const contratosPorFuerza = data?.contratos_por_fuerza || [];
 	const contratosPorEstado = data?.contratos_por_estado || [];
-	const sortedTipo = [...(data?.contratos_por_tipo || [])].sort((a, b) => b.total_contratos - a.total_contratos);
-	const sortedModalidad = [...(data?.contratos_por_modalidad || [])].sort((a, b) => b.total_contratos - a.total_contratos);
+	const sortedTipo = [...(data?.contratos_por_tipo || [])].sort((a, b) => b.total_contratos - a.total_contratos).slice(0, 10);
+	const sortedModalidad = [...(data?.contratos_por_modalidad || [])].sort((a, b) => b.total_contratos - a.total_contratos).slice(0, 10);
 	const contratosPorDepartamento = [...(data?.contratos_por_departamento || [])].sort((a, b) => b.total_contratos - a.total_contratos).slice(0, 15);
 	const topProveedores = (data?.top_proveedores_pais || []).slice(0, 10);
 	const sanciones = data?.sanciones || {};
@@ -363,7 +363,7 @@ export default function OverviewPage() {
 			{sortedTipo.length > 0 && (
 				<Card sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 12px 0 rgba(0,0,0,0.08)" }}>
 					<CardContent>
-						<Typography variant="subtitle1" fontWeight={600} mb={2}>Contratos por Tipo</Typography>
+						<Typography variant="subtitle1" fontWeight={600} mb={2}>Top 10 — Contratos por Tipo</Typography>
 						<ResponsiveContainer width="100%" height={Math.max(300, sortedTipo.length * 38)}>
 							<BarChart data={sortedTipo} layout="vertical" margin={{ left: 20, right: 20 }}>
 								<CartesianGrid strokeDasharray="3 3" />
@@ -381,7 +381,7 @@ export default function OverviewPage() {
 			{sortedModalidad.length > 0 && (
 				<Card sx={{ mb: 3, borderRadius: 2, boxShadow: "0 2px 12px 0 rgba(0,0,0,0.08)" }}>
 					<CardContent>
-						<Typography variant="subtitle1" fontWeight={600} mb={2}>Contratos por Modalidad</Typography>
+						<Typography variant="subtitle1" fontWeight={600} mb={2}>Top 10 — Contratos por Modalidad</Typography>
 						<ResponsiveContainer width="100%" height={Math.max(300, sortedModalidad.length * 38)}>
 							<BarChart data={sortedModalidad} layout="vertical" margin={{ left: 20, right: 20 }}>
 								<CartesianGrid strokeDasharray="3 3" />

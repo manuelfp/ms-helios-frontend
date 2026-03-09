@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -26,8 +26,10 @@ import { Iconify } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
 import { usePrivacy } from "@/hooks/use-privacy";
-import { investigate } from "@/services/helios-api";
+import { investigate, investigateStream } from "@/services/helios-api";
 import { fCurrency, fNumber, maskDoc, maskName } from "@/utils/format";
+
+// ─── Constants ──────────────────────────────────────────────────────
 
 const SENSITIVE_KEYS = new Set([
 	"nombre", "Nombre", "nombre_proveedor", "Nombre_Proveedor", "razon_social",
@@ -66,45 +68,163 @@ const SECTION_ICONS = {
 	fiscal_reviewer: "solar:eye-bold-duotone",
 };
 
+const QUERY_STATUS = { pending: "pending", running: "running", done: "done" };
+
+// ─── Main page ──────────────────────────────────────────────────────
+
 export default function InvestigacionPage() {
 	const { user } = useAuthContext();
 	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
 
 	const [documento, setDocumento] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [result, setResult] = useState(null);
+
+	// Stream state
+	const [streaming, setStreaming] = useState(false);
 	const [error, setError] = useState(null);
 
-	const handleSubmit = async () => {
-		const trimmed = documento.trim();
-		if (!trimmed) return;
+	// Progressive data
+	const [queries, setQueries] = useState([]);
+	const [results, setResults] = useState({});
+	const [graphSummary, setGraphSummary] = useState(null);
+	const [analysisJson, setAnalysisJson] = useState(null);
+	const [analysisText, setAnalysisText] = useState("");
+	const [analysisStreaming, setAnalysisStreaming] = useState(false);
+	const [progress, setProgress] = useState({ completed: 0, total: 0 });
+	const [complete, setComplete] = useState(false);
 
-		setLoading(true);
+	const abortRef = useRef(null);
+	const analysisAccRef = useRef("");
+	const graphDataRef = useRef({ nodes: [], links: [] });
+
+	// Graph state (reconstructed from query_result graph_update events)
+	const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+
+	const reset = useCallback(() => {
+		setQueries([]);
+		setResults({});
+		setGraphSummary(null);
+		setAnalysisJson(null);
+		setAnalysisText("");
+		setAnalysisStreaming(false);
+		setProgress({ completed: 0, total: 0 });
+		setComplete(false);
 		setError(null);
-		setResult(null);
+		setGraphData({ nodes: [], links: [] });
+		graphDataRef.current = { nodes: [], links: [] };
+		analysisAccRef.current = "";
+	}, []);
+
+	const handleSubmit = useCallback(async () => {
+		const trimmed = documento.trim();
+		if (!trimmed || streaming) return;
+
+		reset();
+		setStreaming(true);
+
+		const ctrl = new AbortController();
+		abortRef.current = ctrl;
 
 		try {
-			const data = await investigate(trimmed, user?.email);
-			if (data.error) {
-				setError(data.error);
-			} else {
-				setResult(data);
-			}
+			await investigateStream(trimmed, user?.email, {
+				investigation_start(payload) {
+					setQueries(
+						(payload.queries || []).map((q) => ({
+							...q,
+							status: QUERY_STATUS.pending,
+						}))
+					);
+					setProgress({ completed: 0, total: payload.total_queries || 10 });
+				},
+
+				query_start(payload) {
+					setQueries((prev) =>
+						prev.map((q) =>
+							q.key === payload.key ? { ...q, status: QUERY_STATUS.running } : q
+						)
+					);
+				},
+
+				query_result(payload) {
+					setQueries((prev) =>
+						prev.map((q) =>
+							q.key === payload.key ? { ...q, status: QUERY_STATUS.done, found: payload.found } : q
+						)
+					);
+					setResults((prev) => ({
+						...prev,
+						[payload.key]: {
+							label: payload.label,
+							found: payload.found,
+							data: payload.data || null,
+							duration_ms: payload.duration_ms,
+						},
+					}));
+					setProgress((prev) => ({ ...prev, completed: prev.completed + 1 }));
+				},
+
+				graph_update(payload) {
+					setGraphSummary({ nodes: payload.nodes_total, links: payload.links_total });
+				},
+
+				queries_complete(payload) {
+					setGraphSummary({ nodes: payload.graph?.nodes, links: payload.graph?.links });
+				},
+
+				analysis_start() {
+					setAnalysisStreaming(true);
+					analysisAccRef.current = "";
+				},
+
+				analysis_chunk(payload) {
+					if (payload.text) {
+						analysisAccRef.current += payload.text;
+						setAnalysisText(analysisAccRef.current);
+					}
+				},
+
+				analysis_complete() {
+					setAnalysisStreaming(false);
+					try {
+						const parsed = JSON.parse(analysisAccRef.current);
+						setAnalysisJson(parsed);
+					} catch {
+						// keep raw text visible
+					}
+				},
+
+				complete(payload) {
+					setComplete(true);
+					if (payload.graph_summary) {
+						setGraphSummary(payload.graph_summary);
+					}
+				},
+			}, ctrl.signal);
 		} catch (err) {
-			setError(err.message || "Error al procesar la investigación. Intenta de nuevo.");
+			if (err.name !== "AbortError") {
+				setError(err.message || "Error al procesar la investigación. Intenta de nuevo.");
+			}
 		} finally {
-			setLoading(false);
+			setStreaming(false);
+			abortRef.current = null;
 		}
-	};
+	}, [documento, streaming, user?.email, reset]);
+
+	const handleCancel = useCallback(() => {
+		abortRef.current?.abort();
+		setStreaming(false);
+	}, []);
 
 	const handleKeyDown = (e) => {
-		if (e.key === "Enter" && !loading) {
+		if (e.key === "Enter" && !streaming) {
 			e.preventDefault();
 			handleSubmit();
 		}
 	};
 
-	const { analysis, results, graph } = result || {};
+	const analysis = analysisJson;
+	const progressPct =
+		progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+	const hasAnyResult = Object.keys(results).length > 0;
 
 	return (
 		<Stack spacing={3}>
@@ -116,7 +236,7 @@ export default function InvestigacionPage() {
 				</Typography>
 			</Stack>
 
-			{/* Input */}
+			{/* ─── Input ─────────────────────────────────── */}
 			<Card>
 				<CardContent>
 					<Stack direction="row" spacing={2} alignItems="flex-start">
@@ -126,28 +246,30 @@ export default function InvestigacionPage() {
 							onChange={(e) => setDocumento(e.target.value)}
 							onKeyDown={handleKeyDown}
 							placeholder="Número de CC o NIT..."
-							disabled={loading}
+							disabled={streaming}
 						/>
-						<LoadingButton
-							variant="contained"
-							loading={loading}
-							onClick={handleSubmit}
-							disabled={!documento.trim()}
-							startIcon={<Iconify icon="solar:magnifer-bold-duotone" />}
-							sx={{ minWidth: 140 }}
-						>
-							Investigar
-						</LoadingButton>
+						{streaming ? (
+							<LoadingButton
+								variant="outlined"
+								color="error"
+								onClick={handleCancel}
+								startIcon={<Iconify icon="solar:stop-bold" />}
+								sx={{ minWidth: 140 }}
+							>
+								Cancelar
+							</LoadingButton>
+						) : (
+							<LoadingButton
+								variant="contained"
+								onClick={handleSubmit}
+								disabled={!documento.trim()}
+								startIcon={<Iconify icon="solar:magnifer-bold-duotone" />}
+								sx={{ minWidth: 140 }}
+							>
+								Investigar
+							</LoadingButton>
+						)}
 					</Stack>
-
-					{loading && (
-						<Stack spacing={1} sx={{ mt: 2 }}>
-							<LinearProgress />
-							<Typography variant="caption" color="text.secondary">
-								Recopilando información de múltiples fuentes... Esto puede tomar entre 5 y 20 segundos.
-							</Typography>
-						</Stack>
-					)}
 				</CardContent>
 			</Card>
 
@@ -157,12 +279,64 @@ export default function InvestigacionPage() {
 				</Alert>
 			)}
 
-			{result?.message && !error && (
-				<Alert severity="info" variant="outlined">
-					{result.message}
-				</Alert>
+			{/* ─── Progress tracker ─────────────────────── */}
+			{queries.length > 0 && (
+				<Card>
+					<CardContent>
+						<Stack spacing={2}>
+							<Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+								<Stack direction="row" spacing={1} alignItems="center">
+									<Iconify icon="solar:list-check-bold-duotone" width={22} sx={{ color: "primary.main" }} />
+									<Typography variant="subtitle1">Progreso de investigación</Typography>
+								</Stack>
+								<Typography variant="body2" color="text.secondary">
+									{progress.completed}/{progress.total} consultas
+									{analysisStreaming && " · Analizando con IA..."}
+									{complete && !analysisStreaming && " · Completado"}
+								</Typography>
+							</Stack>
+
+							<LinearProgress
+								variant="determinate"
+								value={analysisStreaming ? 95 : complete ? 100 : progressPct}
+								sx={{ height: 6, borderRadius: 3 }}
+							/>
+
+							<Grid container spacing={1}>
+								{queries.map((q) => (
+									<Grid key={q.key} size={{ xs: 12, sm: 6 }}>
+										<Stack direction="row" spacing={1} alignItems="center">
+											{q.status === QUERY_STATUS.running && (
+												<CircularProgress size={16} thickness={5} />
+											)}
+											{q.status === QUERY_STATUS.done && q.found && (
+												<Iconify icon="solar:check-circle-bold" width={18} sx={{ color: "success.main" }} />
+											)}
+											{q.status === QUERY_STATUS.done && !q.found && (
+												<Iconify icon="solar:minus-circle-bold" width={18} sx={{ color: "grey.400" }} />
+											)}
+											{q.status === QUERY_STATUS.pending && (
+												<Iconify icon="solar:clock-circle-bold" width={18} sx={{ color: "grey.300" }} />
+											)}
+											<Typography
+												variant="caption"
+												sx={{
+													fontWeight: q.status === QUERY_STATUS.running ? 700 : 400,
+													color: q.status === QUERY_STATUS.pending ? "text.disabled" : "text.primary",
+												}}
+											>
+												{q.label}
+											</Typography>
+										</Stack>
+									</Grid>
+								))}
+							</Grid>
+						</Stack>
+					</CardContent>
+				</Card>
 			)}
 
+			{/* ─── Analysis (streamed or parsed) ─────────── */}
 			{analysis && (
 				<Stack spacing={3}>
 					{/* Risk level */}
@@ -195,63 +369,153 @@ export default function InvestigacionPage() {
 					)}
 
 					{/* Profile */}
-					{analysis.perfil && <ProfileSection perfil={analysis.perfil} obfuscate={obfuscate} visibleChars={visibleChars} visibleLastChars={visibleLastChars} maskChar={maskChar} />}
+					{analysis.perfil && (
+						<ProfileSection
+							perfil={analysis.perfil}
+							obfuscate={obfuscate}
+							visibleChars={visibleChars}
+							visibleLastChars={visibleLastChars}
+							maskChar={maskChar}
+						/>
+					)}
 
 					{/* Statistics */}
 					{analysis.estadisticas && <StatisticsSection stats={analysis.estadisticas} />}
 
 					{/* Hallazgos */}
 					{analysis.hallazgos?.length > 0 && <HallazgosSection hallazgos={analysis.hallazgos} />}
-
-					{/* Investigation sections */}
-					{results && <SectionsAccordion results={results} obfuscate={obfuscate} visibleChars={visibleChars} visibleLastChars={visibleLastChars} maskChar={maskChar} />}
-
-					{/* Recommendations */}
-					{analysis.recomendaciones?.length > 0 && (
-						<Card>
-							<CardContent>
-								<Stack spacing={2}>
-									<Stack direction="row" spacing={1} alignItems="center">
-										<Iconify icon="solar:lightbulb-bolt-bold-duotone" width={22} sx={{ color: "warning.main" }} />
-										<Typography variant="subtitle1">Recomendaciones</Typography>
-									</Stack>
-									<List dense disablePadding>
-										{analysis.recomendaciones.map((rec, idx) => (
-											<ListItem key={idx} disableGutters>
-												<ListItemIcon sx={{ minWidth: 32 }}>
-													<Iconify icon="solar:arrow-right-bold" width={16} sx={{ color: "warning.main" }} />
-												</ListItemIcon>
-												<ListItemText primary={rec} primaryTypographyProps={{ variant: "body2" }} />
-											</ListItem>
-										))}
-									</List>
-								</Stack>
-							</CardContent>
-						</Card>
-					)}
-
-					{/* Graph */}
-					{graph?.nodes?.length > 0 && (
-						<Card>
-							<CardContent>
-								<Stack spacing={2}>
-									<Stack direction="row" spacing={1} alignItems="center">
-										<Iconify icon="solar:chart-2-bold-duotone" width={22} sx={{ color: "secondary.main" }} />
-										<Typography variant="subtitle1">Red de relaciones</Typography>
-										<Chip label={`${graph.nodes.length} nodos`} size="small" variant="outlined" />
-									</Stack>
-									<GraphViewer data={graph} height={550} />
-								</Stack>
-							</CardContent>
-						</Card>
-					)}
 				</Stack>
+			)}
+
+			{/* ─── AI analysis live text (while streaming, before JSON parse) ── */}
+			{analysisStreaming && !analysisJson && analysisText && (
+				<Card sx={{ borderLeft: 4, borderColor: "info.main" }}>
+					<CardContent>
+						<Stack spacing={1.5}>
+							<Stack direction="row" spacing={1} alignItems="center">
+								<CircularProgress size={18} thickness={5} />
+								<Typography variant="subtitle1">Análisis de IA en curso...</Typography>
+							</Stack>
+							<Box
+								sx={{
+									p: 1.5,
+									borderRadius: 1,
+									bgcolor: "grey.50",
+									maxHeight: 300,
+									overflow: "auto",
+									fontFamily: "monospace",
+									fontSize: 12,
+									whiteSpace: "pre-wrap",
+									wordBreak: "break-word",
+								}}
+							>
+								{analysisText}
+							</Box>
+						</Stack>
+					</CardContent>
+				</Card>
+			)}
+
+			{/* ─── Investigation sections (progressive) ── */}
+			{hasAnyResult && (
+				<SectionsAccordion
+					results={results}
+					obfuscate={obfuscate}
+					visibleChars={visibleChars}
+					visibleLastChars={visibleLastChars}
+					maskChar={maskChar}
+				/>
+			)}
+
+			{/* ─── Recommendations ────────────────────── */}
+			{analysis?.recomendaciones?.length > 0 && (
+				<Card>
+					<CardContent>
+						<Stack spacing={2}>
+							<Stack direction="row" spacing={1} alignItems="center">
+								<Iconify icon="solar:lightbulb-bolt-bold-duotone" width={22} sx={{ color: "warning.main" }} />
+								<Typography variant="subtitle1">Recomendaciones</Typography>
+							</Stack>
+							<List dense disablePadding>
+								{analysis.recomendaciones.map((rec, idx) => (
+									<ListItem key={idx} disableGutters>
+										<ListItemIcon sx={{ minWidth: 32 }}>
+											<Iconify icon="solar:arrow-right-bold" width={16} sx={{ color: "warning.main" }} />
+										</ListItemIcon>
+										<ListItemText primary={rec} primaryTypographyProps={{ variant: "body2" }} />
+									</ListItem>
+								))}
+							</List>
+						</Stack>
+					</CardContent>
+				</Card>
+			)}
+
+			{/* ─── Graph ─────────────────────────────── */}
+			{graphSummary?.nodes > 0 && complete && (
+				<Card>
+					<CardContent>
+						<Stack spacing={2}>
+							<Stack direction="row" spacing={1} alignItems="center">
+								<Iconify icon="solar:chart-2-bold-duotone" width={22} sx={{ color: "secondary.main" }} />
+								<Typography variant="subtitle1">Red de relaciones</Typography>
+								<Chip label={`${graphSummary.nodes} nodos`} size="small" variant="outlined" />
+							</Stack>
+							<Typography variant="caption" color="text.secondary">
+								El grafo completo se genera al finalizar la investigación. Usa el modo pantalla completa para explorar.
+							</Typography>
+							{/* Fetch full graph on complete via non-stream endpoint for graph data */}
+							<FullGraphLoader documento={documento} userEmail={user?.email} />
+						</Stack>
+					</CardContent>
+				</Card>
 			)}
 		</Stack>
 	);
 }
 
-// ---------------------------------------------------------------------------
+// ─── Full graph loader ──────────────────────────────────────────────
+// The stream endpoint doesn't send node/link details, only counts.
+// We fetch the full investigate result once complete to get graph data.
+
+function FullGraphLoader({ documento, userEmail }) {
+	const [graph, setGraph] = useState(null);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		let cancelled = false;
+		investigate(documento, userEmail)
+			.then((data) => {
+				if (!cancelled && data?.graph) setGraph(data.graph);
+			})
+			.catch(() => {})
+			.finally(() => { if (!cancelled) setLoading(false); });
+		return () => { cancelled = true; };
+	}, [documento, userEmail]);
+
+	if (loading) {
+		return (
+			<Stack alignItems="center" spacing={1} sx={{ py: 4 }}>
+				<CircularProgress size={32} />
+				<Typography variant="caption" color="text.secondary">
+					Cargando datos del grafo...
+				</Typography>
+			</Stack>
+		);
+	}
+
+	if (!graph?.nodes?.length) {
+		return (
+			<Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: "center" }}>
+				No se pudieron cargar los datos del grafo.
+			</Typography>
+		);
+	}
+
+	return <GraphViewer data={graph} height={550} />;
+}
+
+// ─── Sub-components ─────────────────────────────────────────────────
 
 function ProfileSection({ perfil, obfuscate, visibleChars, visibleLastChars, maskChar }) {
 	return (
@@ -274,16 +538,16 @@ function ProfileSection({ perfil, obfuscate, visibleChars, visibleLastChars, mas
 							<Grid size={{ xs: 12, sm: 4 }}>
 								<Typography variant="caption" color="text.disabled">Nombre</Typography>
 								<Typography variant="body2" fontWeight={600}>
-								{obfuscate ? maskName(perfil.nombre, visibleChars, maskChar) : perfil.nombre}
-							</Typography>
+									{obfuscate ? maskName(perfil.nombre, visibleChars, maskChar) : perfil.nombre}
+								</Typography>
 							</Grid>
 						)}
 						{perfil.documento && (
 							<Grid size={{ xs: 12, sm: 4 }}>
 								<Typography variant="caption" color="text.disabled">Documento</Typography>
 								<Typography variant="body2" fontWeight={600}>
-								{obfuscate ? maskDoc(perfil.documento, visibleLastChars, maskChar) : perfil.documento}
-							</Typography>
+									{obfuscate ? maskDoc(perfil.documento, visibleLastChars, maskChar) : perfil.documento}
+								</Typography>
 							</Grid>
 						)}
 					</Grid>
@@ -451,6 +715,11 @@ function SectionsAccordion({ results, obfuscate, visibleChars, visibleLastChars,
 								<Typography variant="subtitle2" sx={{ flex: 1 }}>
 									{section.label || key}
 								</Typography>
+								{section.duration_ms != null && (
+									<Typography variant="caption" color="text.disabled" sx={{ mr: 1 }}>
+										{(section.duration_ms / 1000).toFixed(1)}s
+									</Typography>
+								)}
 								{section.found ? (
 									<Iconify icon="solar:check-circle-bold" width={20} sx={{ color: "success.main" }} />
 								) : (
@@ -460,12 +729,6 @@ function SectionsAccordion({ results, obfuscate, visibleChars, visibleLastChars,
 						</AccordionSummary>
 
 						<AccordionDetails>
-							{section.error && (
-								<Alert severity="error" variant="outlined" sx={{ mb: 1 }}>
-									{section.error}
-								</Alert>
-							)}
-
 							{section.found && section.data ? (
 								<DataRenderer data={section.data} obfuscate={obfuscate} visibleChars={visibleChars} visibleLastChars={visibleLastChars} maskChar={maskChar} />
 							) : (
@@ -491,6 +754,7 @@ function DataRenderer({ data, obfuscate, visibleChars, visibleLastChars, maskCha
 		if (SENSITIVE_DOC_KEYS.has(k)) return maskDoc(str, visibleLastChars, maskChar);
 		return str;
 	}
+
 	if (Array.isArray(data)) {
 		return (
 			<Stack spacing={1}>

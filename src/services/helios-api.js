@@ -19,6 +19,59 @@ export const graphSearch = (filters = {}) =>
 export const investigate = (documento, user) =>
 	axios.post("/neo4j/investigate", { documento, user }).then((r) => r.data);
 
+/**
+ * Stream-based investigation via SSE (POST /neo4j/investigate/stream).
+ * Uses fetch + ReadableStream because EventSource only supports GET.
+ *
+ * @param {string} documento
+ * @param {string} user
+ * @param {object} handlers — callback map keyed by SSE event type
+ * @param {AbortSignal} [signal] — optional abort signal to cancel
+ * @returns {Promise<void>}
+ */
+export async function investigateStream(documento, user, handlers = {}, signal) {
+	const base = axios.defaults.baseURL || "";
+	const url = `${base}/neo4j/investigate/stream`.replace(/^\/\//, "/");
+
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+		body: JSON.stringify({ documento, user }),
+		signal,
+	});
+
+	if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+
+	while (true) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+
+		const parts = buffer.split("\n\n");
+		buffer = parts.pop();
+
+		for (const raw of parts) {
+			let eventType = "message";
+			let dataStr = "";
+			for (const line of raw.split("\n")) {
+				if (line.startsWith("event:")) eventType = line.slice(6).trim();
+				else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+			}
+			if (!dataStr) continue;
+			try {
+				const payload = JSON.parse(dataStr);
+				handlers[eventType]?.(payload);
+			} catch {
+				handlers[eventType]?.({ raw: dataStr });
+			}
+		}
+	}
+}
+
 // ─── Catálogos ─────────────────────────────────────────────────────
 export const getCatalogFuerzas = () =>
 	axios.get("/neo4j/catalogs/fuerzas").then((r) => r.data);
