@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -7,10 +7,14 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -22,7 +26,9 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import LoadingButton from "@mui/lab/LoadingButton";
 
@@ -79,15 +85,31 @@ const SUMMARY_CARDS = [
 ];
 
 const BQ_TABLE_COLUMNS = [
-	{ key: "id_contrato", label: "ID Contrato", maxWidth: 180 },
-	{ key: "nombre_entidad", label: "Entidad", maxWidth: 260 },
-	{ key: "proveedor_adjudicado", label: "Proveedor", maxWidth: 260 },
-	{ key: "estado_contrato", label: "Estado" },
-	{ key: "tipo_de_contrato", label: "Tipo" },
-	{ key: "departamento", label: "Departamento" },
-	{ key: "anio", label: "Año" },
-	{ key: "valor_del_contrato", label: "Valor", align: "right", isCurrency: true },
+	{ key: "id_contrato", label: "ID Contrato", maxWidth: 180, sortable: true },
+	{ key: "nombre_entidad", label: "Entidad", maxWidth: 260, sortable: true, filterable: true },
+	{ key: "proveedor_adjudicado", label: "Proveedor", maxWidth: 260, sortable: true, filterable: true },
+	{ key: "estado_contrato", label: "Estado", sortable: true, filterable: true },
+	{ key: "tipo_de_contrato", label: "Tipo", sortable: true, filterable: true },
+	{ key: "departamento", label: "Departamento", sortable: true, filterable: true },
+	{ key: "anio", label: "Año", sortable: true },
+	{ key: "valor_del_contrato", label: "Valor", align: "right", isCurrency: true, sortable: true },
 ];
+
+const DETAIL_LABELS = {
+	id_contrato: "ID Contrato",
+	nombre_entidad: "Entidad",
+	nit_entidad: "NIT Entidad",
+	departamento: "Departamento",
+	ciudad: "Ciudad",
+	proveedor_adjudicado: "Proveedor Adjudicado",
+	documento_proveedor: "Doc. Proveedor",
+	valor_del_contrato: "Valor del Contrato",
+	anio: "Año",
+	tipo_de_contrato: "Tipo de Contrato",
+	estado_contrato: "Estado",
+	justificacion_modalidad_de: "Modalidad de Contratación",
+	fuerza: "Fuerza",
+};
 
 function useDebouncedCatalog(fetchFn, delay = 300) {
 	const [options, setOptions] = useState([]);
@@ -555,55 +577,13 @@ export default function ContratosPage() {
 
 			{/* ─── Tabla de contratos (BigQuery) ──────────────────── */}
 			{contractRows.length > 0 && (
-				<Card>
-					<CardContent sx={{ p: 0 }}>
-						<Box sx={{ px: 3, pt: 3, pb: 1 }}>
-							<Typography variant="h6">
-								Contratos encontrados ({fNumber(contractRows.length)})
-							</Typography>
-						</Box>
-						<TableContainer>
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										{BQ_TABLE_COLUMNS.map((col) => (
-											<TableCell key={col.key} align={col.align || "left"} sx={{ fontWeight: 600 }}>
-												{col.label}
-											</TableCell>
-										))}
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{contractRows.map((row, idx) => (
-										<TableRow key={row.id_contrato || idx} hover>
-											{BQ_TABLE_COLUMNS.map((col) => {
-												const raw = row[col.key];
-												let display;
-												if (col.isCurrency) {
-													display = fCurrency(raw);
-												} else {
-													display = raw != null ? String(raw) : "—";
-													if (obfuscate && SENSITIVE_NAME_KEYS.has(col.key)) display = maskName(display, visibleChars, maskChar);
-													else if (obfuscate && SENSITIVE_DOC_KEYS.has(col.key)) display = maskDoc(display, visibleLastChars, maskChar);
-												}
-												if (col.maxWidth && display.length > 80) display = display.slice(0, 77) + "...";
-												return (
-													<TableCell
-														key={col.key}
-														align={col.align || "left"}
-														sx={col.maxWidth ? { maxWidth: col.maxWidth, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } : undefined}
-													>
-														{display}
-													</TableCell>
-												);
-											})}
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</TableContainer>
-					</CardContent>
-				</Card>
+				<ContractsTable
+					rows={contractRows}
+					obfuscate={obfuscate}
+					visibleChars={visibleChars}
+					visibleLastChars={visibleLastChars}
+					maskChar={maskChar}
+				/>
 			)}
 
 			{/* ─── Grafo de relaciones (Neo4j) ───────────────────── */}
@@ -653,5 +633,307 @@ export default function ContratosPage() {
 				</Box>
 			)}
 		</Stack>
+	);
+}
+
+// ─── Interactive contracts table ────────────────────────────────────
+
+function ContractsTable({ rows, obfuscate, visibleChars, visibleLastChars, maskChar }) {
+	const [searchText, setSearchText] = useState("");
+	const [columnFilters, setColumnFilters] = useState({});
+	const [orderBy, setOrderBy] = useState("");
+	const [orderDir, setOrderDir] = useState("asc");
+	const [detailRow, setDetailRow] = useState(null);
+
+	const filterableColumns = BQ_TABLE_COLUMNS.filter((c) => c.filterable);
+
+	const uniqueValues = useMemo(() => {
+		const map = {};
+		for (const col of filterableColumns) {
+			const vals = new Set();
+			rows.forEach((r) => { if (r[col.key] != null && r[col.key] !== "") vals.add(String(r[col.key])); });
+			map[col.key] = [...vals].sort();
+		}
+		return map;
+	}, [rows]);
+
+	const filteredRows = useMemo(() => {
+		let data = rows;
+
+		if (searchText.trim()) {
+			const q = searchText.toLowerCase();
+			data = data.filter((r) =>
+				Object.values(r).some((v) => v != null && String(v).toLowerCase().includes(q)),
+			);
+		}
+
+		for (const [key, value] of Object.entries(columnFilters)) {
+			if (value) data = data.filter((r) => String(r[key]) === value);
+		}
+
+		if (orderBy) {
+			data = [...data].sort((a, b) => {
+				const va = a[orderBy];
+				const vb = b[orderBy];
+				if (va == null && vb == null) return 0;
+				if (va == null) return 1;
+				if (vb == null) return -1;
+				if (typeof va === "number" && typeof vb === "number") return orderDir === "asc" ? va - vb : vb - va;
+				const sa = String(va).toLowerCase();
+				const sb = String(vb).toLowerCase();
+				return orderDir === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
+			});
+		}
+
+		return data;
+	}, [rows, searchText, columnFilters, orderBy, orderDir]);
+
+	const handleSort = (key) => {
+		if (orderBy === key) {
+			setOrderDir((prev) => (prev === "asc" ? "desc" : "asc"));
+		} else {
+			setOrderBy(key);
+			setOrderDir("asc");
+		}
+	};
+
+	const handleColumnFilter = (key) => (e) => {
+		setColumnFilters((prev) => ({ ...prev, [key]: e.target.value }));
+	};
+
+	const activeFilterCount = Object.values(columnFilters).filter(Boolean).length + (searchText.trim() ? 1 : 0);
+
+	const clearFilters = () => {
+		setSearchText("");
+		setColumnFilters({});
+	};
+
+	function formatCell(col, raw) {
+		if (col.isCurrency) return fCurrency(raw);
+		if (raw == null) return "—";
+		const str = String(raw);
+		if (obfuscate && SENSITIVE_NAME_KEYS.has(col.key)) return maskName(str, visibleChars, maskChar);
+		if (obfuscate && SENSITIVE_DOC_KEYS.has(col.key)) return maskDoc(str, visibleLastChars, maskChar);
+		return str;
+	}
+
+	return (
+		<>
+			<Card>
+				<CardContent sx={{ pb: 0 }}>
+					<Stack spacing={2}>
+						{/* Header + search */}
+						<Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} justifyContent="space-between">
+							<Stack direction="row" spacing={1} alignItems="center">
+								<Typography variant="h6">
+									Contratos encontrados
+								</Typography>
+								<Chip label={`${fNumber(filteredRows.length)} de ${fNumber(rows.length)}`} size="small" color="primary" variant="outlined" />
+							</Stack>
+
+							<Stack direction="row" spacing={1} alignItems="center">
+								<TextField
+									size="small"
+									placeholder="Buscar en resultados..."
+									value={searchText}
+									onChange={(e) => setSearchText(e.target.value)}
+									slotProps={{
+										input: {
+											startAdornment: (
+												<InputAdornment position="start">
+													<Iconify icon="solar:magnifer-bold" width={18} sx={{ color: "text.disabled" }} />
+												</InputAdornment>
+											),
+											endAdornment: searchText ? (
+												<InputAdornment position="end">
+													<IconButton size="small" onClick={() => setSearchText("")}>
+														<Iconify icon="solar:close-circle-bold" width={16} />
+													</IconButton>
+												</InputAdornment>
+											) : null,
+										},
+									}}
+									sx={{ minWidth: 240 }}
+								/>
+								{activeFilterCount > 0 && (
+									<Chip
+										label={`${activeFilterCount} filtro${activeFilterCount > 1 ? "s" : ""}`}
+										size="small"
+										color="warning"
+										onDelete={clearFilters}
+									/>
+								)}
+							</Stack>
+						</Stack>
+
+						{/* Column filters */}
+						<Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+							{filterableColumns.map((col) => (
+								<FormControl key={col.key} size="small" sx={{ minWidth: 150 }}>
+									<InputLabel>{col.label}</InputLabel>
+									<Select
+										value={columnFilters[col.key] || ""}
+										label={col.label}
+										onChange={handleColumnFilter(col.key)}
+									>
+										<MenuItem value=""><em>Todos</em></MenuItem>
+										{(uniqueValues[col.key] || []).slice(0, 50).map((v) => (
+											<MenuItem key={v} value={v}>
+												{v.length > 40 ? v.slice(0, 37) + "…" : v}
+											</MenuItem>
+										))}
+									</Select>
+								</FormControl>
+							))}
+						</Stack>
+					</Stack>
+				</CardContent>
+
+				{/* Table */}
+				<TableContainer sx={{ maxHeight: 600 }}>
+					<Table size="small" stickyHeader>
+						<TableHead>
+							<TableRow>
+								<TableCell sx={{ fontWeight: 600, width: 48 }} />
+								{BQ_TABLE_COLUMNS.map((col) => (
+									<TableCell
+										key={col.key}
+										align={col.align || "left"}
+										sx={{ fontWeight: 600, whiteSpace: "nowrap" }}
+										sortDirection={orderBy === col.key ? orderDir : false}
+									>
+										{col.sortable ? (
+											<TableSortLabel
+												active={orderBy === col.key}
+												direction={orderBy === col.key ? orderDir : "asc"}
+												onClick={() => handleSort(col.key)}
+											>
+												{col.label}
+											</TableSortLabel>
+										) : (
+											col.label
+										)}
+									</TableCell>
+								))}
+							</TableRow>
+						</TableHead>
+						<TableBody>
+							{filteredRows.map((row, idx) => (
+								<TableRow
+									key={row.id_contrato || idx}
+									hover
+									sx={{ cursor: "pointer" }}
+									onClick={() => setDetailRow(row)}
+								>
+									<TableCell sx={{ px: 0.5 }}>
+										<Tooltip title="Ver detalle" arrow>
+											<IconButton size="small" sx={{ color: "primary.main" }}>
+												<Iconify icon="solar:eye-bold-duotone" width={20} />
+											</IconButton>
+										</Tooltip>
+									</TableCell>
+									{BQ_TABLE_COLUMNS.map((col) => {
+										const display = formatCell(col, row[col.key]);
+										const truncated = col.maxWidth && display.length > 80 ? display.slice(0, 77) + "..." : display;
+										return (
+											<TableCell
+												key={col.key}
+												align={col.align || "left"}
+												sx={col.maxWidth ? { maxWidth: col.maxWidth, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } : { whiteSpace: "nowrap" }}
+											>
+												{truncated}
+											</TableCell>
+										);
+									})}
+								</TableRow>
+							))}
+
+							{filteredRows.length === 0 && (
+								<TableRow>
+									<TableCell colSpan={BQ_TABLE_COLUMNS.length + 1} align="center" sx={{ py: 4 }}>
+										<Typography variant="body2" color="text.disabled">
+											No se encontraron contratos con los filtros aplicados.
+										</Typography>
+									</TableCell>
+								</TableRow>
+							)}
+						</TableBody>
+					</Table>
+				</TableContainer>
+			</Card>
+
+			<ContractDetailDialog
+				contract={detailRow}
+				open={!!detailRow}
+				onClose={() => setDetailRow(null)}
+				obfuscate={obfuscate}
+				visibleChars={visibleChars}
+				visibleLastChars={visibleLastChars}
+				maskChar={maskChar}
+			/>
+		</>
+	);
+}
+
+// ─── Contract detail modal ──────────────────────────────────────────
+
+function ContractDetailDialog({ contract, open, onClose, obfuscate, visibleChars, visibleLastChars, maskChar }) {
+	if (!contract) return null;
+
+	const entries = Object.entries(contract).filter(([, v]) => v != null && v !== "");
+
+	return (
+		<Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+			<DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
+				<Stack direction="row" alignItems="center" spacing={1}>
+					<Iconify icon="solar:document-bold-duotone" width={24} sx={{ color: SECONDARY }} />
+					<Typography variant="h6">Detalle del Contrato</Typography>
+				</Stack>
+				<IconButton size="small" onClick={onClose}>
+					<Iconify icon="solar:close-circle-bold-duotone" width={22} />
+				</IconButton>
+			</DialogTitle>
+
+			<Divider />
+
+			<DialogContent sx={{ pt: 2 }}>
+				<Stack spacing={2.5}>
+					{entries.map(([key, value]) => {
+						const label = DETAIL_LABELS[key] || PROPERTY_LABELS[key] || key.replace(/_/g, " ");
+						const isMonetary = key.toLowerCase().includes("valor") || key.toLowerCase().includes("monto");
+						let display;
+
+						if (value == null) display = "—";
+						else if (isMonetary && typeof value === "number") display = fCurrency(value);
+						else if (typeof value === "number") display = fNumber(value);
+						else display = String(value);
+
+						if (obfuscate) {
+							if (SENSITIVE_NAME_KEYS.has(key)) display = maskName(display, visibleChars, maskChar);
+							else if (SENSITIVE_DOC_KEYS.has(key)) display = maskDoc(display, visibleLastChars, maskChar);
+						}
+
+						return (
+							<Box key={key}>
+								<Typography variant="caption" color="text.disabled" sx={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+									{label}
+								</Typography>
+								<Typography
+									variant="body2"
+									sx={{
+										wordBreak: "break-word",
+										fontWeight: isMonetary ? 700 : 400,
+										fontSize: isMonetary ? 15 : 14,
+										color: isMonetary ? "primary.main" : "text.primary",
+									}}
+								>
+									{display}
+								</Typography>
+							</Box>
+						);
+					})}
+				</Stack>
+			</DialogContent>
+		</Dialog>
 	);
 }
