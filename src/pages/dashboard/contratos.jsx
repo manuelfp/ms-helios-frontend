@@ -30,7 +30,8 @@ import { Iconify } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
 import { usePrivacy } from "@/hooks/use-privacy";
 import {
-	graphSearch,
+	contractSearch,
+	neo4jGraphSearch,
 	getCatalogFuerzas,
 	getCatalogAnios,
 	getCatalogEntidades,
@@ -77,14 +78,15 @@ const SUMMARY_CARDS = [
 	{ key: "valor_total", label: "Valor Total", icon: "solar:wallet-money-bold-duotone", color: SECONDARY, format: fCurrency },
 ];
 
-const CONTRACT_COLUMNS = [
-	{ key: "Objeto", label: "Descripción", maxWidth: 300 },
-	{ key: "Entidad", label: "Entidad" },
-	{ key: "Proveedor", label: "Proveedor" },
-	{ key: "Estado_Contrato", label: "Estado" },
-	{ key: "Tipo_Contrato", label: "Tipo" },
-	{ key: "Fecha_Firma", label: "Fecha Firma", isDate: true },
-	{ key: "Valor_Contrato", label: "Valor", align: "right", isCurrency: true },
+const BQ_TABLE_COLUMNS = [
+	{ key: "id_contrato", label: "ID Contrato", maxWidth: 180 },
+	{ key: "nombre_entidad", label: "Entidad", maxWidth: 260 },
+	{ key: "proveedor_adjudicado", label: "Proveedor", maxWidth: 260 },
+	{ key: "estado_contrato", label: "Estado" },
+	{ key: "tipo_de_contrato", label: "Tipo" },
+	{ key: "departamento", label: "Departamento" },
+	{ key: "anio", label: "Año" },
+	{ key: "valor_del_contrato", label: "Valor", align: "right", isCurrency: true },
 ];
 
 function useDebouncedCatalog(fetchFn, delay = 300) {
@@ -291,8 +293,10 @@ export default function ContratosPage() {
 	});
 
 	const [searching, setSearching] = useState(false);
+	const [graphLoading, setGraphLoading] = useState(false);
 	const [error, setError] = useState(null);
-	const [result, setResult] = useState(null);
+	const [tableResult, setTableResult] = useState(null);
+	const [graphData, setGraphData] = useState({ nodes: [], links: [] });
 	const [selectedNode, setSelectedNode] = useState(null);
 
 	const entidadCatalog = useDebouncedCatalog(getCatalogEntidades);
@@ -311,37 +315,45 @@ export default function ContratosPage() {
 		setFilters((prev) => ({ ...prev, [key]: val }));
 	};
 
+	const buildPayload = () => {
+		const payload = {};
+		if (filters.fuerza) payload.fuerza = filters.fuerza;
+		if (filters.ano) payload.ano = filters.ano;
+		if (filters.entidad) payload.entidad = filters.entidad;
+		if (filters.ciudad) payload.ciudad = filters.ciudad;
+		if (filters.proveedor) payload.proveedor = filters.proveedor;
+		if (filters.documento) payload.documento = filters.documento;
+		if (filters.limit) payload.limit = filters.limit;
+		return payload;
+	};
+
 	const handleSearch = async () => {
 		setSearching(true);
 		setError(null);
 		setSelectedNode(null);
-		try {
-			const payload = {};
-			if (filters.fuerza) payload.fuerza = filters.fuerza;
-			if (filters.ano) payload.ano = filters.ano;
-			if (filters.entidad) payload.entidad = filters.entidad;
-			if (filters.ciudad) payload.ciudad = filters.ciudad;
-			if (filters.proveedor) payload.proveedor = filters.proveedor;
-			if (filters.documento) payload.documento = filters.documento;
-			if (filters.limit) payload.limit = filters.limit;
+		setGraphData({ nodes: [], links: [] });
 
-			const data = await graphSearch(payload);
-			setResult(data);
+		const payload = buildPayload();
+
+		try {
+			const data = await contractSearch(payload);
+			setTableResult(data);
 		} catch (err) {
 			setError(err?.message || "Error al realizar la búsqueda");
 		} finally {
 			setSearching(false);
 		}
+
+		setGraphLoading(true);
+		neo4jGraphSearch(payload)
+			.then((gData) => setGraphData(gData?.graph || { nodes: [], links: [] }))
+			.catch(() => {})
+			.finally(() => setGraphLoading(false));
 	};
 
-	const rawSummary = result?.summary?.resultSet?.[0] || null;
-	const summary = rawSummary
-		? Object.fromEntries(Object.entries(rawSummary).map(([k, v]) => [k, resolveNeo4jValue(v)]))
-		: null;
-	const graphData = result?.graph || { nodes: [], links: [] };
-	const contractNodes = (graphData.nodes || []).filter(
-		(n) => n.group === "CONTRATOS" || (n.labels && n.labels.includes("CONTRATOS")),
-	);
+	const rawSummary = tableResult?.summary?.resultSet?.[0] || null;
+	const summary = rawSummary || null;
+	const contractRows = tableResult?.data?.resultSet || [];
 
 	return (
 		<Stack spacing={3}>
@@ -541,76 +553,40 @@ export default function ContratosPage() {
 				</Grid>
 			)}
 
-			{/* ─── Grafo + Detalle ───────────────────────────────── */}
-			{result && (
-				<Grid container spacing={2}>
-					<Grid size={{ xs: 12, md: selectedNode ? 8 : 12 }}>
-						<Card sx={{ height: "100%" }}>
-							<CardContent>
-								<Typography variant="h6" sx={{ mb: 2 }}>
-									Grafo de relaciones
-								</Typography>
-								<GraphViewer
-									data={graphData}
-									height={500}
-									onNodeClick={(node) =>
-										setSelectedNode((prev) => (prev?.id === node.id ? null : node))
-									}
-									selectedNodeId={selectedNode?.id}
-								/>
-							</CardContent>
-						</Card>
-					</Grid>
-
-					{selectedNode && (
-						<Grid size={{ xs: 12, md: 4 }}>
-							<NodeDetailCard node={selectedNode} onClose={() => setSelectedNode(null)} />
-						</Grid>
-					)}
-				</Grid>
-			)}
-
-			{/* ─── Tabla de contratos ─────────────────────────────── */}
-			{contractNodes.length > 0 && (
+			{/* ─── Tabla de contratos (BigQuery) ──────────────────── */}
+			{contractRows.length > 0 && (
 				<Card>
 					<CardContent sx={{ p: 0 }}>
 						<Box sx={{ px: 3, pt: 3, pb: 1 }}>
 							<Typography variant="h6">
-								Contratos encontrados ({fNumber(contractNodes.length)})
+								Contratos encontrados ({fNumber(contractRows.length)})
 							</Typography>
 						</Box>
 						<TableContainer>
 							<Table size="small">
 								<TableHead>
 									<TableRow>
-										{CONTRACT_COLUMNS.map((col) => (
-											<TableCell key={col.key} align={col.align || "left"}>
+										{BQ_TABLE_COLUMNS.map((col) => (
+											<TableCell key={col.key} align={col.align || "left"} sx={{ fontWeight: 600 }}>
 												{col.label}
 											</TableCell>
 										))}
 									</TableRow>
 								</TableHead>
-							<TableBody>
-								{contractNodes.map((node, idx) => {
-									const props = node.properties || {};
-									return (
-										<TableRow key={node.id ?? idx} hover>
-											{CONTRACT_COLUMNS.map((col) => {
-												const raw = props[col.key];
+								<TableBody>
+									{contractRows.map((row, idx) => (
+										<TableRow key={row.id_contrato || idx} hover>
+											{BQ_TABLE_COLUMNS.map((col) => {
+												const raw = row[col.key];
 												let display;
-												if (col.isDate) {
-													display = neo4jDate(raw) || "—";
-												} else if (col.isCurrency) {
-													display = fCurrency(neo4jInt(raw));
+												if (col.isCurrency) {
+													display = fCurrency(raw);
 												} else {
-													const resolved = resolveNeo4jValue(raw);
-													display = resolved != null ? String(resolved) : "—";
+													display = raw != null ? String(raw) : "—";
 													if (obfuscate && SENSITIVE_NAME_KEYS.has(col.key)) display = maskName(display, visibleChars, maskChar);
 													else if (obfuscate && SENSITIVE_DOC_KEYS.has(col.key)) display = maskDoc(display, visibleLastChars, maskChar);
 												}
-												if (col.maxWidth && display.length > 80) {
-													display = display.slice(0, 77) + "...";
-												}
+												if (col.maxWidth && display.length > 80) display = display.slice(0, 77) + "...";
 												return (
 													<TableCell
 														key={col.key}
@@ -622,13 +598,53 @@ export default function ContratosPage() {
 												);
 											})}
 										</TableRow>
-									);
-								})}
-							</TableBody>
+									))}
+								</TableBody>
 							</Table>
 						</TableContainer>
 					</CardContent>
 				</Card>
+			)}
+
+			{/* ─── Grafo de relaciones (Neo4j) ───────────────────── */}
+			{(graphData.nodes?.length > 0 || graphLoading) && (
+				<Grid container spacing={2}>
+					<Grid size={{ xs: 12, md: selectedNode ? 8 : 12 }}>
+						<Card sx={{ height: "100%" }}>
+							<CardContent>
+								<Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+									<Typography variant="h6">Grafo de relaciones</Typography>
+									{graphLoading && <CircularProgress size={20} />}
+									{graphLoading && (
+										<Typography variant="caption" color="text.secondary">
+											Generando grafo...
+										</Typography>
+									)}
+								</Stack>
+								{graphData.nodes?.length > 0 ? (
+									<GraphViewer
+										data={graphData}
+										height={500}
+										onNodeClick={(node) =>
+											setSelectedNode((prev) => (prev?.id === node.id ? null : node))
+										}
+										selectedNodeId={selectedNode?.id}
+									/>
+								) : (
+									<Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+										<CircularProgress sx={{ color: PRIMARY }} />
+									</Box>
+								)}
+							</CardContent>
+						</Card>
+					</Grid>
+
+					{selectedNode && (
+						<Grid size={{ xs: 12, md: 4 }}>
+							<NodeDetailCard node={selectedNode} onClose={() => setSelectedNode(null)} />
+						</Grid>
+					)}
+				</Grid>
 			)}
 
 			{searching && (

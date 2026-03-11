@@ -29,7 +29,7 @@ import LoadingButton from "@mui/lab/LoadingButton";
 import { Iconify } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
-import { naturalQuery } from "@/services/helios-api";
+import { naturalQuery, neo4jNaturalQuery } from "@/services/helios-api";
 import { fCurrency, fNumber } from "@/utils/format";
 
 function neo4jInt(v) {
@@ -188,7 +188,9 @@ export default function ConsultaIAPage() {
 
 	const [question, setQuestion] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [graphLoading, setGraphLoading] = useState(false);
 	const [result, setResult] = useState(null);
+	const [graphResult, setGraphResult] = useState(null);
 	const [error, setError] = useState(null);
 	const [showQueries, setShowQueries] = useState(false);
 	const [selectedNode, setSelectedNode] = useState(null);
@@ -200,6 +202,7 @@ export default function ConsultaIAPage() {
 		setLoading(true);
 		setError(null);
 		setResult(null);
+		setGraphResult(null);
 		setSelectedNode(null);
 
 		try {
@@ -214,6 +217,14 @@ export default function ConsultaIAPage() {
 		} finally {
 			setLoading(false);
 		}
+
+		setGraphLoading(true);
+		neo4jNaturalQuery(trimmed, user?.email)
+			.then((gData) => {
+				if (gData?.graph_data?.nodes?.length > 0) setGraphResult(gData.graph_data);
+			})
+			.catch(() => {})
+			.finally(() => setGraphLoading(false));
 	};
 
 	const handleExampleClick = (q) => {
@@ -317,7 +328,7 @@ export default function ConsultaIAPage() {
 											sx={{ color: "text.secondary" }}
 										/>
 										<Typography variant="subtitle2" color="text.secondary">
-											Consultas Cypher generadas
+											Consultas SQL generadas
 										</Typography>
 									</Stack>
 
@@ -413,8 +424,8 @@ export default function ConsultaIAPage() {
 						</Card>
 					)}
 
-					{/* Graph visualization + node detail */}
-					{result.graph_data?.type === "graph" && result.graph_data.nodes?.length > 0 && (
+					{/* Graph visualization + node detail (from Neo4j) */}
+					{(graphResult?.nodes?.length > 0 || graphLoading) && (
 						<Grid container spacing={2}>
 							<Grid size={{ xs: 12, md: selectedNode ? 8 : 12 }}>
 								<Card sx={{ height: "100%" }}>
@@ -423,17 +434,29 @@ export default function ConsultaIAPage() {
 											<Stack direction="row" spacing={1} alignItems="center">
 												<Iconify icon="solar:chart-2-bold-duotone" width={22} sx={{ color: "secondary.main" }} />
 												<Typography variant="subtitle1">Visualización de grafo</Typography>
-												<Chip label={`${result.graph_data.nodes.length} nodos`} size="small" variant="outlined" />
+												{graphResult?.nodes && (
+													<Chip label={`${graphResult.nodes.length} nodos`} size="small" variant="outlined" />
+												)}
+												{graphLoading && <CircularProgress size={18} />}
+												{graphLoading && (
+													<Typography variant="caption" color="text.secondary">Generando grafo...</Typography>
+												)}
 											</Stack>
 
-											<GraphViewer
-												data={result.graph_data}
-												height={500}
-												onNodeClick={(node) =>
-													setSelectedNode((prev) => (prev?.id === node.id ? null : node))
-												}
-												selectedNodeId={selectedNode?.id}
-											/>
+											{graphResult?.nodes?.length > 0 ? (
+												<GraphViewer
+													data={graphResult}
+													height={500}
+													onNodeClick={(node) =>
+														setSelectedNode((prev) => (prev?.id === node.id ? null : node))
+													}
+													selectedNodeId={selectedNode?.id}
+												/>
+											) : (
+												<Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+													<CircularProgress />
+												</Box>
+											)}
 										</Stack>
 									</CardContent>
 								</Card>
@@ -450,7 +473,8 @@ export default function ConsultaIAPage() {
 					{/* No results */}
 					{!result.response_data?.resultSet?.length &&
 						!result.response_data?.nodes?.length &&
-						!result.graph_data?.nodes?.length && (
+						!graphResult?.nodes?.length &&
+						!graphLoading && (
 							<Alert severity="info" variant="outlined">
 								La consulta se ejecutó correctamente pero no retornó resultados.
 							</Alert>
