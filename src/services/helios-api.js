@@ -189,6 +189,3 @@ export const getConcentracion = (ano, limit = 20) =>
 
 export const neo4jGraphSearch = (filters = {}) =>
 	axios.post("/neo4j/graph-search", filters).then((r) => r.data);
-
-export const neo4jNaturalQuery = (question, user) =>
-	axios.post("/neo4j/natural-query", { question, user }).then((r) => r.data);
