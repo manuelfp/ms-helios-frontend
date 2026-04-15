@@ -1,150 +1,384 @@
+import { useEffect, useMemo, useState } from "react";
+
+import { Link as RouterLink } from "react-router-dom";
+
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
-import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import FormControl from "@mui/material/FormControl";
+import Grid from "@mui/material/Grid";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
+import {
+	Area,
+	AreaChart,
+	Bar,
+	BarChart,
+	CartesianGrid,
+	ResponsiveContainer,
+	Tooltip,
+	XAxis,
+	YAxis,
+} from "recharts";
+
 import { Iconify } from "@/components/core";
+import { ALERT_TYPE_CARDS } from "@/services/mock-alerts";
+import { getAlertsSummary, getAlertRiskScore, getCatalogAnios, getCatalogFuerzas } from "@/services/helios-api";
+import { paths } from "@/paths";
+import { fCurrency, fNumber } from "@/utils/format";
 
-const MOCK_ALERTAS = [
-	{
-		id: 1,
-		titulo: "Posible sobrecosto detectado",
-		descripcion:
-			"El contrato CTR-2026-003 presenta un valor un 45% superior al promedio histórico para contratos similares de servicios de alimentación.",
-		tipo: "Sobrecosto",
-		severidad: "alta",
-		fecha: "2026-02-27",
-		contrato: "CTR-2026-003",
-	},
-	{
-		id: 2,
-		titulo: "Pliego con especificaciones restrictivas",
-		descripcion:
-			"El pliego del contrato CTR-2026-002 incluye requisitos técnicos que limitan la participación a un único proveedor.",
-		tipo: "Pliego dirigido",
-		severidad: "alta",
-		fecha: "2026-02-26",
-		contrato: "CTR-2026-002",
-	},
-	{
-		id: 3,
-		titulo: "Proveedor con antecedentes",
-		descripcion:
-			"El proveedor adjudicatario del contrato CTR-2026-004 tiene 3 investigaciones previas en la Contraloría General.",
-		tipo: "Proveedor riesgoso",
-		severidad: "media",
-		fecha: "2026-02-25",
-		contrato: "CTR-2026-004",
-	},
-	{
-		id: 4,
-		titulo: "Contrato sin pluralidad de oferentes",
-		descripcion:
-			"Solo se presentó un oferente al proceso de selección del contrato CTR-2026-001, lo cual reduce la competitividad.",
-		tipo: "Competencia limitada",
-		severidad: "media",
-		fecha: "2026-02-24",
-		contrato: "CTR-2026-001",
-	},
-];
-
-const SEVERITY_CONFIG = {
-	alta: { color: "error", icon: "solar:danger-bold" },
-	media: { color: "warning", icon: "solar:shield-warning-bold" },
-	baja: { color: "info", icon: "solar:info-circle-bold" },
+const ALERT_PATHS = {
+	"AT-01": paths.dashboard.alertasAt01,
+	"AT-02": paths.dashboard.alertasAt02,
+	"AT-03": paths.dashboard.alertasAt03,
+	"AT-04": paths.dashboard.alertasAt04,
+	"AT-05": paths.dashboard.alertasAt05,
+	"AT-06": paths.dashboard.alertasAt06,
+	"AT-07": paths.dashboard.alertasAt07,
 };
 
-export default function AlertasPage() {
+const CURRENT_YEAR = new Date().getFullYear();
+
+export default function AlertasDashboardPage() {
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+	const [summary, setSummary] = useState(null);
+	const [risk, setRisk] = useState(null);
+	const [anios, setAnios] = useState([]);
+	const [fuerzas, setFuerzas] = useState([]);
+	const [ano, setAno] = useState(String(CURRENT_YEAR));
+	const [fuerza, setFuerza] = useState("");
+
+	useEffect(() => {
+		getCatalogAnios()
+			.then((d) => setAnios(Array.isArray(d) ? d : []))
+			.catch(() => setAnios([CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2]));
+		getCatalogFuerzas()
+			.then((d) => setFuerzas(Array.isArray(d) ? d : []))
+			.catch(() => setFuerzas([]));
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		setLoading(true);
+		setError(null);
+		const params = { ano: ano || undefined, fuerza: fuerza || undefined };
+		Promise.all([getAlertsSummary(params), getAlertRiskScore(params)])
+			.then(([s, r]) => {
+				if (!cancelled) {
+					setSummary(s);
+					setRisk(r);
+				}
+			})
+			.catch((e) => {
+				if (!cancelled) setError(e?.message || "Error al cargar alertas");
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [ano, fuerza]);
+
+	const isMock = summary?.meta?.mock || summary?.mock || risk?.mock;
+
+	const porTipoChart = useMemo(() => {
+		const list = summary?.por_tipo || [];
+		return list.map((x) => ({
+			name: x.codigo || x.name,
+			total: x.total ?? x.count ?? 0,
+		}));
+	}, [summary]);
+
+	const porFuerzaChart = useMemo(() => {
+		const list = summary?.por_fuerza || [];
+		return list.map((x) => ({
+			name: x.fuerza || x.name,
+			total: x.total ?? 0,
+		}));
+	}, [summary]);
+
+	const topEntidades = summary?.top_entidades || [];
+	const tendencia = summary?.tendencia_mensual || [];
+
+	const kpis = summary?.kpis || {};
+
 	return (
 		<Stack spacing={3}>
-			<Stack spacing={1}>
-				<Typography variant="h4">Alertas de IA</Typography>
+			<Stack spacing={0.5}>
+				<Typography variant="h4">Alertas tempranas</Typography>
 				<Typography variant="body2" color="text.secondary">
-					Anomalías detectadas por los modelos de Inteligencia Artificial en procesos de contratación
+					Resumen de banderas rojas y concentraciones atípicas según la metodología del Sector Defensa (datos
+					SECOP / BigQuery).
 				</Typography>
 			</Stack>
 
-			<Stack spacing={2}>
-				{MOCK_ALERTAS.map((alerta) => {
-					const config = SEVERITY_CONFIG[alerta.severidad];
-					return (
-						<Card
-							key={alerta.id}
-							sx={{
-								borderLeft: 4,
-								borderColor: `${config.color}.main`,
-								transition: "box-shadow 0.2s",
-								"&:hover": { boxShadow: "0 4px 20px rgba(0,0,0,0.08)" },
-							}}
-						>
-							<CardContent>
-								<Stack spacing={2}>
-									<Stack direction="row" alignItems="flex-start" justifyContent="space-between">
-										<Stack direction="row" spacing={1.5} alignItems="center">
-											<Box
-												sx={{
-													width: 40,
-													height: 40,
-													borderRadius: 1.5,
-													display: "flex",
-													alignItems: "center",
-													justifyContent: "center",
-													bgcolor: `${config.color}.lighter`,
-												}}
-											>
-												<Iconify icon={config.icon} width={22} sx={{ color: `${config.color}.main` }} />
-											</Box>
-											<Stack spacing={0.25}>
-												<Typography variant="subtitle1">{alerta.titulo}</Typography>
-												<Stack direction="row" spacing={1}>
-													<Chip label={alerta.tipo} size="small" variant="outlined" />
-													<Chip
-														label={`Severidad: ${alerta.severidad}`}
-														size="small"
-														color={config.color}
-													/>
+			{error && <Alert severity="error">{error}</Alert>}
+			{isMock && !error && (
+				<Alert severity="info">
+					Mostrando datos de demostración o respuesta parcial hasta que el backend exponga{" "}
+					<code>/bigquery/alerts/*</code> en producción.
+				</Alert>
+			)}
+
+			<Stack direction={{ xs: "column", md: "row" }} spacing={2} flexWrap="wrap">
+				<FormControl size="small" sx={{ minWidth: 120 }}>
+					<InputLabel>Año</InputLabel>
+					<Select label="Año" value={ano} onChange={(e) => setAno(e.target.value)}>
+						{(anios.length ? anios : [CURRENT_YEAR, CURRENT_YEAR - 1]).map((a) => (
+							<MenuItem key={String(a)} value={String(a)}>
+								{a}
+							</MenuItem>
+						))}
+					</Select>
+				</FormControl>
+				<FormControl size="small" sx={{ minWidth: 200 }}>
+					<InputLabel>Fuerza</InputLabel>
+					<Select label="Fuerza" value={fuerza} onChange={(e) => setFuerza(e.target.value)}>
+						<MenuItem value="">Todas</MenuItem>
+						{fuerzas.map((f) => (
+							<MenuItem key={typeof f === "string" ? f : f.fuerza || f.nombre} value={typeof f === "string" ? f : f.fuerza || f.nombre}>
+								{typeof f === "string" ? f : f.fuerza || f.nombre || f.descripcion}
+							</MenuItem>
+						))}
+					</Select>
+				</FormControl>
+				<Button variant="outlined" size="small" onClick={() => { setAno(String(CURRENT_YEAR)); setFuerza(""); }}>
+					Restablecer filtros
+				</Button>
+			</Stack>
+
+			{loading && (
+				<Stack alignItems="center" py={4}>
+					<CircularProgress />
+				</Stack>
+			)}
+
+			{!loading && summary && (
+				<>
+					<Grid container spacing={2}>
+						<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+							<KpiCard icon="solar:danger-triangle-bold-duotone" label="Total alertas (registros)" value={fNumber(kpis.total_alertas ?? 0)} color="#E53935" />
+						</Grid>
+						<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+							<KpiCard icon="solar:document-bold-duotone" label="Contratos afectados" value={fNumber(kpis.contratos_afectados ?? 0)} color="#2E3B4E" />
+						</Grid>
+						<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+							<KpiCard icon="solar:user-bold-duotone" label="Proveedores señalados" value={fNumber(kpis.proveedores_senalados ?? 0)} color="#5C6BC0" />
+						</Grid>
+						<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+							<KpiCard icon="solar:wallet-money-bold-duotone" label="Valor en riesgo (est.)" value={fCurrency(kpis.valor_en_riesgo ?? 0)} color="#F2A900" />
+						</Grid>
+					</Grid>
+
+					<Typography variant="h6" sx={{ mt: 1 }}>
+						Explorar por tipo de alerta
+					</Typography>
+					<Grid container spacing={2}>
+						{ALERT_TYPE_CARDS.map((a) => {
+							const total = porTipoChart.find((p) => p.name === a.code)?.total ?? "—";
+							const to = ALERT_PATHS[a.code];
+							return (
+								<Grid key={a.code} size={{ xs: 12, sm: 6, md: 4 }}>
+									<Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
+										<CardActionArea component={RouterLink} to={to} sx={{ height: "100%" }}>
+											<CardContent>
+												<Stack direction="row" spacing={1.5} alignItems="flex-start">
+													<Box
+														sx={{
+															width: 44,
+															height: 44,
+															borderRadius: 1.5,
+															display: "flex",
+															alignItems: "center",
+															justifyContent: "center",
+															bgcolor: `${a.color}18`,
+														}}
+													>
+														<Iconify icon={a.icon} width={26} sx={{ color: a.color }} />
+													</Box>
+													<Box sx={{ minWidth: 0, flex: 1 }}>
+														<Typography variant="caption" color="text.secondary">
+															{a.code}
+														</Typography>
+														<Typography variant="subtitle1" fontWeight={700}>
+															{a.title}
+														</Typography>
+														<Typography variant="h5" sx={{ mt: 0.5 }}>
+															{typeof total === "number" ? fNumber(total) : total}
+														</Typography>
+													</Box>
+													<Iconify icon="solar:arrow-right-up-bold-duotone" width={20} color="action" />
 												</Stack>
-											</Stack>
-										</Stack>
-										<Typography variant="caption" color="text.disabled">
-											{alerta.fecha}
+											</CardContent>
+										</CardActionArea>
+									</Card>
+								</Grid>
+							);
+						})}
+					</Grid>
+
+					<Grid container spacing={2}>
+						<Grid size={{ xs: 12, lg: 6 }}>
+							<ChartCard title="Alertas por tipo">
+								<ResponsiveContainer width="100%" height={280}>
+									<BarChart data={porTipoChart} layout="vertical" margin={{ left: 8, right: 16 }}>
+										<CartesianGrid strokeDasharray="3 3" />
+										<XAxis type="number" />
+										<YAxis dataKey="name" type="category" width={56} tick={{ fontSize: 11 }} />
+										<Tooltip />
+										<Bar dataKey="total" fill="#2E3B4E" radius={[0, 4, 4, 0]} />
+									</BarChart>
+								</ResponsiveContainer>
+							</ChartCard>
+						</Grid>
+						<Grid size={{ xs: 12, lg: 6 }}>
+							<ChartCard title="Por fuerza">
+								<ResponsiveContainer width="100%" height={280}>
+									<BarChart data={porFuerzaChart}>
+										<CartesianGrid strokeDasharray="3 3" />
+										<XAxis dataKey="name" tick={{ fontSize: 11 }} />
+										<YAxis />
+										<Tooltip />
+										<Bar dataKey="total" fill="#4A6741" radius={[4, 4, 0, 0]} />
+									</BarChart>
+								</ResponsiveContainer>
+							</ChartCard>
+						</Grid>
+						<Grid size={{ xs: 12, lg: 6 }}>
+							<ChartCard title="Top entidades (alertas)">
+								<ResponsiveContainer width="100%" height={280}>
+									<BarChart data={topEntidades.map((e) => ({ name: e.nombre_entidad?.slice(0, 28) || "—", total: e.total }))} layout="vertical">
+										<CartesianGrid strokeDasharray="3 3" />
+										<XAxis type="number" />
+										<YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
+										<Tooltip />
+										<Bar dataKey="total" fill="#F2A900" radius={[0, 4, 4, 0]} />
+									</BarChart>
+								</ResponsiveContainer>
+							</ChartCard>
+						</Grid>
+						<Grid size={{ xs: 12, lg: 6 }}>
+							<ChartCard title="Tendencia mensual (ejemplo)">
+								<ResponsiveContainer width="100%" height={280}>
+									<AreaChart data={tendencia}>
+										<CartesianGrid strokeDasharray="3 3" />
+										<XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+										<YAxis />
+										<Tooltip />
+										<Area type="monotone" dataKey="total" stroke="#5C6BC0" fill="#5C6BC033" />
+									</AreaChart>
+								</ResponsiveContainer>
+							</ChartCard>
+						</Grid>
+					</Grid>
+
+					{(risk?.ranking_proveedores?.length > 0 || risk?.ranking_entidades?.length > 0) && (
+						<Card variant="outlined" sx={{ borderRadius: 2, p: 2 }}>
+							<Typography variant="subtitle1" fontWeight={700} gutterBottom>
+								Índice de riesgo — ranking
+							</Typography>
+							{risk?.ranking_proveedores?.length > 0 && (
+							<Stack spacing={1}>
+								{risk.ranking_proveedores.slice(0, 5).map((p, i) => (
+									<Stack key={i} direction="row" justifyContent="space-between" alignItems="center">
+										<Button
+											component={RouterLink}
+											to={paths.dashboard.perfilProveedor(p.codigo_proveedor)}
+											size="small"
+											variant="text"
+											sx={{ justifyContent: "flex-start", textTransform: "none" }}
+										>
+											{p.proveedor_adjudicado || p.codigo_proveedor}
+										</Button>
+										<Typography variant="body2">
+											Score {p.score} · {p.nivel}
 										</Typography>
 									</Stack>
-
-									<Typography variant="body2" color="text.secondary">
-										{alerta.descripcion}
+								))}
+							</Stack>
+							)}
+							{risk?.ranking_entidades?.length > 0 && (
+								<>
+									<Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+										Entidades destacadas
 									</Typography>
-
-									<Typography variant="caption" color="text.disabled">
-										Contrato relacionado: <strong>{alerta.contrato}</strong>
-									</Typography>
-								</Stack>
-							</CardContent>
+									<Stack spacing={0.5}>
+										{risk.ranking_entidades.slice(0, 4).map((e, j) => (
+											<Button
+												key={j}
+												component={RouterLink}
+												to={paths.dashboard.perfilEntidad(String(e.nit_entidad ?? e.nit))}
+												size="small"
+												variant="text"
+												sx={{ justifyContent: "flex-start", textTransform: "none" }}
+											>
+												{e.nombre_entidad} — score {e.score}
+											</Button>
+										))}
+									</Stack>
+								</>
+							)}
+							<Button component={RouterLink} to={paths.dashboard.alertasAt01} sx={{ mt: 1 }} size="small">
+								Ir a alertas detalladas
+							</Button>
 						</Card>
-					);
-				})}
-			</Stack>
-
-			<Box
-				sx={{
-					p: 3,
-					borderRadius: 2,
-					bgcolor: "info.lighter",
-					border: "1px dashed",
-					borderColor: "info.main",
-					display: "flex",
-					alignItems: "center",
-					gap: 2,
-				}}
-			>
-				<Iconify icon="solar:cpu-bolt-bold-duotone" width={24} sx={{ color: "info.main" }} />
-				<Typography variant="body2" color="info.dark">
-					Las alertas son generadas por modelos de IA en fase de desarrollo. Los datos mostrados son de
-					demostración.
-				</Typography>
-			</Box>
+					)}
+				</>
+			)}
 		</Stack>
+	);
+}
+
+function KpiCard({ icon, label, value, color }) {
+	return (
+		<Card sx={{ height: "100%", borderRadius: 2 }}>
+			<CardContent>
+				<Stack direction="row" spacing={1.5} alignItems="center">
+					<Box
+						sx={{
+							width: 48,
+							height: 48,
+							borderRadius: 2,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							bgcolor: `${color}14`,
+						}}
+					>
+						<Iconify icon={icon} width={26} sx={{ color }} />
+					</Box>
+					<Box>
+						<Typography variant="h5" fontWeight={700}>
+							{value}
+						</Typography>
+						<Typography variant="body2" color="text.secondary">
+							{label}
+						</Typography>
+					</Box>
+				</Stack>
+			</CardContent>
+		</Card>
+	);
+}
+
+function ChartCard({ title, children }) {
+	return (
+		<Card variant="outlined" sx={{ borderRadius: 2, p: 2, height: "100%" }}>
+			<Typography variant="subtitle2" color="text.secondary" gutterBottom>
+				{title}
+			</Typography>
+			<Box sx={{ width: "100%", minHeight: 280 }}>{children}</Box>
+		</Card>
 	);
 }

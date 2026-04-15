@@ -1,5 +1,7 @@
 import axios from "@/utils/axios";
 
+import * as mockAlerts from "@/services/mock-alerts";
+
 // ═══════════════════════════════════════════════════════════════════════
 //  BigQuery API  (/bigquery)  — primary data source (fast)
 //  Neo4j API     (/neo4j)     — graph visualization only
@@ -182,6 +184,89 @@ export const getSanciones = () =>
 
 export const getConcentracion = (ano, limit = 20) =>
 	axios.get("/bigquery/stats/concentracion", { params: { ...(ano ? { ano } : {}), limit } }).then((r) => r.data);
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Alertas tempranas (/bigquery/alerts/*) — fallback a mock si API no existe
+// ═══════════════════════════════════════════════════════════════════════
+
+async function alertsOrMock(apiCall, mockFn) {
+	try {
+		const data = await apiCall();
+		return data;
+	} catch {
+		return typeof mockFn === "function" ? mockFn() : mockFn;
+	}
+}
+
+/** @param {Record<string, string|number|undefined>} [params] */
+export const getAlertsSummary = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/summary", { params }).then((r) => r.data),
+		() => mockAlerts.getMockAlertsSummary(params || {}),
+	);
+
+export const getAlertSingleBidder = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/single-bidder", { params }).then((r) => r.data),
+		() => mockAlerts.getMockSingleBidder(params || {}),
+	);
+
+export const getAlertShortAward = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/short-award-period", { params }).then((r) => r.data),
+		() => mockAlerts.getMockShortAward(params || {}),
+	);
+
+export const getAlertConcentrationEntity = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/concentration-entity", { params }).then((r) => r.data),
+		() => mockAlerts.getMockConcentrationEntity(params || {}),
+	);
+
+export const getAlertConcentrationCity = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/concentration-city", { params }).then((r) => r.data),
+		() => mockAlerts.getMockConcentrationCity(params || {}),
+	);
+
+export const getAlertConcentrationMarket = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/concentration-market", { params }).then((r) => r.data),
+		() => mockAlerts.getMockConcentrationMarket(params || {}),
+	);
+
+export const getAlertAnnuityExceeded = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/annuity-exceeded", { params }).then((r) => r.data),
+		() => mockAlerts.getMockAnnuityExceeded(params || {}),
+	);
+
+export const getAlertHeterogeneousSupplier = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/heterogeneous-supplier", { params }).then((r) => r.data),
+		() => mockAlerts.getMockHeterogeneousSupplier(params || {}),
+	);
+
+export const getAlertRiskScore = (params) =>
+	alertsOrMock(
+		() => axios.get("/bigquery/alerts/risk-score", { params }).then((r) => r.data),
+		() => mockAlerts.getMockRiskScore(params || {}),
+	);
+
+export const getProviderAlertProfile = (documento, params) =>
+	alertsOrMock(
+		() =>
+			axios
+				.get(`/bigquery/alerts/provider-profile/${encodeURIComponent(documento)}`, { params })
+				.then((r) => r.data),
+		() => mockAlerts.getMockProviderProfile(documento),
+	);
+
+export const getEntityAlertProfile = (nit, params) =>
+	alertsOrMock(
+		() => axios.get(`/bigquery/alerts/entity-profile/${encodeURIComponent(nit)}`, { params }).then((r) => r.data),
+		() => mockAlerts.getMockEntityProfile(nit),
+	);
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Neo4j endpoints — graph visualization ONLY

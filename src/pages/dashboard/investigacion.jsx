@@ -94,11 +94,6 @@ export default function InvestigacionPage() {
 
 	const abortRef = useRef(null);
 	const analysisAccRef = useRef("");
-	const graphDataRef = useRef({ nodes: [], links: [] });
-
-	// Graph state (reconstructed from query_result graph_update events)
-	const [graphData, setGraphData] = useState({ nodes: [], links: [] });
-
 	const reset = useCallback(() => {
 		setQueries([]);
 		setResults({});
@@ -109,8 +104,6 @@ export default function InvestigacionPage() {
 		setProgress({ completed: 0, total: 0 });
 		setComplete(false);
 		setError(null);
-		setGraphData({ nodes: [], links: [] });
-		graphDataRef.current = { nodes: [], links: [] };
 		analysisAccRef.current = "";
 	}, []);
 

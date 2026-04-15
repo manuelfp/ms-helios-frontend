@@ -173,7 +173,6 @@ export default function OverviewPage() {
 	// KPI state — each key populated independently as SSE events arrive
 	const [kpis, setKpis] = useState({});
 	const [streaming, setStreaming] = useState(false);
-	const [complete, setComplete] = useState(false);
 	const [error, setError] = useState(null);
 	const [receivedKeys, setReceivedKeys] = useState(new Set());
 
@@ -196,7 +195,6 @@ export default function OverviewPage() {
 		setKpis({});
 		setReceivedKeys(new Set());
 		setStreaming(true);
-		setComplete(false);
 		setError(null);
 
 		dashboardStream(
@@ -213,9 +211,7 @@ export default function OverviewPage() {
 					}
 				},
 
-				complete() {
-					setComplete(true);
-				},
+				complete() {},
 			},
 			ctrl.signal,
 		)
@@ -226,7 +222,6 @@ export default function OverviewPage() {
 			})
 			.finally(() => {
 				setStreaming(false);
-				setComplete(true);
 			});
 	}, []);
 
@@ -239,9 +234,11 @@ export default function OverviewPage() {
 	const resumen = kpis.resumen_general || {};
 	const anioConsultado = kpis.anio_consultado;
 	const sanciones = kpis.sanciones || {};
+	const sancionesGeneral = sanciones.general || sanciones.disciplinarias || {};
+	const sancionesDefensa = sanciones.sector_defensa || sanciones.fiscales || {};
 	const totalSanciones =
-		(sanciones.disciplinarias?.total_sanciones || 0) +
-		(sanciones.fiscales?.total_sanciones || 0);
+		(sancionesGeneral.total_sanciones || 0) +
+		(sancionesDefensa.total_sanciones || 0);
 
 	const tendencias = kpis.tendencias_historicas || {};
 	const contratosPorAnio = tendencias.contratos_por_anio || [];
@@ -355,22 +352,24 @@ export default function OverviewPage() {
 								<Stack direction="row" spacing={1} alignItems="center">
 									<Iconify icon="mdi:account-alert-outline" width={24} sx={{ color: "#EF5350" }} />
 									<Box>
-										<Typography variant="h6" fontWeight={700}>{fNumber(sanciones.disciplinarias?.total_sanciones || 0)}</Typography>
-										<Typography variant="caption" color="text.secondary">Disciplinarias</Typography>
+										<Typography variant="h6" fontWeight={700}>{fNumber(sancionesGeneral.total_sanciones || 0)}</Typography>
+										<Typography variant="caption" color="text.secondary">Generales</Typography>
 									</Box>
 								</Stack>
 								<Stack direction="row" spacing={1} alignItems="center">
-									<Iconify icon="mdi:cash-remove" width={24} sx={{ color: "#FF7043" }} />
+									<Iconify icon="mdi:shield-alert-outline" width={24} sx={{ color: "#FF7043" }} />
 									<Box>
-										<Typography variant="h6" fontWeight={700}>{fNumber(sanciones.fiscales?.total_sanciones || 0)}</Typography>
-										<Typography variant="caption" color="text.secondary">Fiscales</Typography>
+										<Typography variant="h6" fontWeight={700}>{fNumber(sancionesDefensa.total_sanciones || 0)}</Typography>
+										<Typography variant="caption" color="text.secondary">Sector Defensa</Typography>
 									</Box>
 								</Stack>
-								{sanciones.disciplinarias?.tipos_sancion?.length > 0 && (
-									<Stack direction="row" flexWrap="wrap" gap={0.5}>
-										{sanciones.disciplinarias.tipos_sancion.slice(0, 5).map((t, i) => (
-											<Chip key={i} label={t.trim()} size="small" variant="outlined" color="warning" />
-										))}
+								{(sancionesGeneral.valor_total || sancionesDefensa.valor_total) && (
+									<Stack direction="row" spacing={1} alignItems="center">
+										<Iconify icon="mdi:cash-multiple" width={24} sx={{ color: "#7C5295" }} />
+										<Box>
+											<Typography variant="h6" fontWeight={700}>{fCurrency((sancionesGeneral.valor_total || 0) + (sancionesDefensa.valor_total || 0))}</Typography>
+											<Typography variant="caption" color="text.secondary">Valor Total Sanciones</Typography>
+										</Box>
 									</Stack>
 								)}
 							</Stack>

@@ -276,7 +276,7 @@ function TabFuerzas({ dashboard }) {
 // TAB: Entidades — individual endpoint (not in dashboard)
 // ═══════════════════════════════════════════════════════════════════════
 function TabEntidades() {
-	const { data, loading, error } = useAsyncData(() => getMontosPorEntidad(30), []);
+	const { data, loading, error } = useAsyncData(() => getMontosPorEntidad(undefined, 30), []);
 
 	if (loading) return <SectionLoader />;
 	if (error) return <SectionError message={error} />;
@@ -337,7 +337,7 @@ function TabEntidades() {
 // TAB: Proveedores — individual endpoint + dashboard.top_proveedores_pais
 // ═══════════════════════════════════════════════════════════════════════
 function TabProveedores({ dashboard, year }) {
-	const proveedores = useAsyncData(() => getContratosPorProveedor(30), []);
+	const proveedores = useAsyncData(() => getContratosPorProveedor(undefined, 30), []);
 	const concentracion = useAsyncData(() => getConcentracion(year || undefined, 20), [year]);
 	const topPais = dashboard?.top_proveedores_pais || [];
 
@@ -619,84 +619,90 @@ function TabSanciones({ dashboard }) {
 	const sanciones = dashboard?.sanciones;
 	if (!sanciones) return <Alert severity="info">Sin datos de sanciones</Alert>;
 
-	const { disciplinarias, fiscales } = sanciones;
+	const general = sanciones.general || sanciones.disciplinarias || {};
+	const defensa = sanciones.sector_defensa || sanciones.fiscales || {};
 
 	return (
 		<Grid container spacing={3}>
-			{disciplinarias && (
+			{general.total_sanciones > 0 && (
 				<Grid size={{ xs: 12, md: 6 }}>
 					<Card sx={{ height: "100%" }}>
 						<CardContent>
 							<Stack direction="row" alignItems="center" spacing={1} mb={2}>
 								<Iconify icon="mdi:gavel" width={28} sx={{ color: CHART_COLORS[4] }} />
-								<Typography variant="h6">Sanciones Disciplinarias</Typography>
+								<Typography variant="h6">Sanciones Generales</Typography>
 							</Stack>
 
 							<Typography variant="h3" sx={{ color: CHART_COLORS[4], mb: 2 }}>
-								{fNumber(disciplinarias.total_sanciones)}
+								{fNumber(general.total_sanciones)}
 							</Typography>
 
-							<Typography variant="subtitle2" gutterBottom>Tipos de Sanción</Typography>
-							<Stack direction="row" flexWrap="wrap" gap={1} mb={2}>
-								{(disciplinarias.tipos_sancion || []).map((t, i) => (
-									<Chip key={i} label={typeof t === "string" ? t.trim() : `${t.tipo}: ${t.total}`} size="small" variant="outlined" />
-								))}
+							<Stack spacing={1.5}>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Valor total</Typography>
+									<Typography variant="body2" fontWeight={600}>{fCurrency(general.valor_total)}</Typography>
+								</Stack>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Valor pagado</Typography>
+									<Typography variant="body2" fontWeight={600}>{fCurrency(general.valor_pagado_total)}</Typography>
+								</Stack>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Proveedores sancionados</Typography>
+									<Typography variant="body2" fontWeight={600}>{fNumber(general.total_proveedores_sancionados)}</Typography>
+								</Stack>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Entidades</Typography>
+									<Typography variant="body2" fontWeight={600}>{fNumber(general.total_entidades)}</Typography>
+								</Stack>
 							</Stack>
 
-							{disciplinarias.tipos_inhabilidad?.length > 0 && (
+							{/* Fallback: legacy tipos_sancion from Neo4j */}
+							{general.tipos_sancion?.length > 0 && (
 								<>
-									<Typography variant="subtitle2" gutterBottom>Tipos de Inhabilidad</Typography>
-									<Stack direction="row" flexWrap="wrap" gap={1} mb={2}>
-										{disciplinarias.tipos_inhabilidad.map((t, i) => (
-											<Chip key={i} label={typeof t === "string" ? t.trim() : `${t.tipo}: ${t.total}`} size="small" color="warning" variant="outlined" />
+									<Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Tipos de Sanción</Typography>
+									<Stack direction="row" flexWrap="wrap" gap={1}>
+										{general.tipos_sancion.map((t, i) => (
+											<Chip key={i} label={typeof t === "string" ? t.trim() : `${t.tipo}: ${t.total}`} size="small" variant="outlined" />
 										))}
 									</Stack>
 								</>
 							)}
-
-							<Typography variant="body2" color="text.secondary">
-								Departamentos con sanciones: {
-									Array.isArray(disciplinarias.departamentos)
-										? disciplinarias.departamentos.length
-										: fNumber(disciplinarias.departamentos)
-								}
-							</Typography>
 						</CardContent>
 					</Card>
 				</Grid>
 			)}
 
-			{fiscales && (
+			{defensa.total_sanciones > 0 && (
 				<Grid size={{ xs: 12, md: 6 }}>
 					<Card sx={{ height: "100%" }}>
 						<CardContent>
 							<Stack direction="row" alignItems="center" spacing={1} mb={2}>
-								<Iconify icon="mdi:cash-remove" width={28} sx={{ color: CHART_COLORS[7] }} />
-								<Typography variant="h6">Sanciones Fiscales</Typography>
+								<Iconify icon="mdi:shield-alert-outline" width={28} sx={{ color: CHART_COLORS[7] }} />
+								<Typography variant="h6">Sector Defensa</Typography>
 							</Stack>
 
-							<Typography variant="h3" sx={{ color: CHART_COLORS[7], mb: 1 }}>
-								{fNumber(fiscales.total_sanciones)}
+							<Typography variant="h3" sx={{ color: CHART_COLORS[7], mb: 2 }}>
+								{fNumber(defensa.total_sanciones)}
 							</Typography>
 
-							<Typography variant="body1" sx={{ mb: 2 }}>
-								Cuantía Total: <strong>{fCurrency(fiscales.cuantia_total)}</strong>
-							</Typography>
-
-							<Typography variant="body2" color="text.secondary">
-								Departamentos: {
-									Array.isArray(fiscales.departamentos)
-										? fiscales.departamentos.length
-										: fNumber(fiscales.departamentos)
-								}
-							</Typography>
-							<Typography variant="body2" color="text.secondary">
-								Entidades Afectadas: {
-									Array.isArray(fiscales.entidades_afectadas)
-										? fiscales.entidades_afectadas.length
-										: fNumber(fiscales.entidades_afectadas)
-								}
-							</Typography>
+							<Stack spacing={1.5}>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Valor total</Typography>
+									<Typography variant="body2" fontWeight={600}>{fCurrency(defensa.valor_total)}</Typography>
+								</Stack>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Valor pagado</Typography>
+									<Typography variant="body2" fontWeight={600}>{fCurrency(defensa.valor_pagado_total)}</Typography>
+								</Stack>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Proveedores sancionados</Typography>
+									<Typography variant="body2" fontWeight={600}>{fNumber(defensa.proveedores_sancionados)}</Typography>
+								</Stack>
+								<Stack direction="row" justifyContent="space-between">
+									<Typography variant="body2" color="text.secondary">Entidades Defensa</Typography>
+									<Typography variant="body2" fontWeight={600}>{fNumber(defensa.entidades_defensa)}</Typography>
+								</Stack>
+							</Stack>
 						</CardContent>
 					</Card>
 				</Grid>

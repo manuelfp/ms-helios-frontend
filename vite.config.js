@@ -1,7 +1,10 @@
 import path from "path";
+import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
 	plugins: [react()],
@@ -9,7 +12,7 @@ export default defineConfig({
 		alias: [
 			{
 				find: /^@\/(.+)/,
-				replacement: path.join(process.cwd(), "src/$1"),
+				replacement: path.join(__dirname, "src/$1"),
 			},
 		],
 	},

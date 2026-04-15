@@ -1,0 +1,63 @@
+import { useEffect, useState } from "react";
+
+import { Link as RouterLink } from "react-router-dom";
+
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+
+import { AlertDetailView } from "@/components/alertas/AlertDetailView";
+import { METHODOLOGY } from "@/services/mock-alerts";
+import { getAlertShortAward } from "@/services/helios-api";
+import { paths } from "@/paths";
+
+const COLUMNS = [
+	{ key: "id_contrato", label: "ID Contrato" },
+	{ key: "modalidad_de_contratacion", label: "Modalidad", maxWidth: 200 },
+	{ key: "dias_adjudicacion", label: "Días adjudicación", align: "right", format: "number" },
+	{ key: "umbral_modalidad", label: "Umbral (días)", align: "right", format: "number" },
+	{ key: "fecha_de_apertura_efectiva", label: "Apertura" },
+	{ key: "fecha_adjudicacion", label: "Adjudicación" },
+	{ key: "nombre_entidad", label: "Entidad", maxWidth: 240 },
+];
+
+export default function AlertasAt02Page() {
+	const [loading, setLoading] = useState(true);
+	const [data, setData] = useState({ rows: [] });
+
+	useEffect(() => {
+		let cancelled = false;
+		setLoading(true);
+		getAlertShortAward({})
+			.then((d) => {
+				if (!cancelled) setData(d || { rows: [] });
+			})
+			.catch(() => {
+				if (!cancelled) setData({ rows: [] });
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	return (
+		<Stack spacing={2}>
+			<Button component={RouterLink} to={paths.dashboard.alertas} size="small" variant="text">
+				← Volver al resumen de alertas
+			</Button>
+			<AlertDetailView
+				title="Periodo de adjudicación extremadamente corto"
+				subtitle="Contratos cuyo delta adjudicación − apertura está por debajo del umbral IQR por modalidad (AT-02)."
+				alertCode="AT-02"
+				columns={COLUMNS}
+				rows={data.rows || []}
+				loading={loading}
+				methodology={METHODOLOGY["AT-02"]}
+				exportFileName="alertas-at-02.csv"
+				mockBanner={!!data.mock}
+			/>
+		</Stack>
+	);
+}
