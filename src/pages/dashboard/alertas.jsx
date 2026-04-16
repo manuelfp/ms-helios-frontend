@@ -9,13 +9,8 @@ import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
 import CircularProgress from "@mui/material/CircularProgress";
-import FormControl from "@mui/material/FormControl";
 import Grid from "@mui/material/Grid";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
 import {
@@ -31,8 +26,10 @@ import {
 } from "recharts";
 
 import { Iconify } from "@/components/core";
+import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { ALERT_TYPE_CARDS } from "@/services/mock-alerts";
-import { getAlertsSummary, getAlertRiskScore, getCatalogAnios, getCatalogFuerzas } from "@/services/helios-api";
+import { getAlertsSummary, getAlertRiskScore } from "@/services/helios-api";
+import { useAlertFilters } from "@/hooks/useAlertFilters";
 import { paths } from "@/paths";
 import { fCurrency, fNumber } from "@/utils/format";
 
@@ -46,32 +43,17 @@ const ALERT_PATHS = {
 	"AT-07": paths.dashboard.alertasAt07,
 };
 
-const CURRENT_YEAR = new Date().getFullYear();
-
 export default function AlertasDashboardPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [summary, setSummary] = useState(null);
 	const [risk, setRisk] = useState(null);
-	const [anios, setAnios] = useState([]);
-	const [fuerzas, setFuerzas] = useState([]);
-	const [ano, setAno] = useState(String(CURRENT_YEAR));
-	const [fuerza, setFuerza] = useState("");
-
-	useEffect(() => {
-		getCatalogAnios()
-			.then((d) => setAnios(Array.isArray(d) ? d : []))
-			.catch(() => setAnios([CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2]));
-		getCatalogFuerzas()
-			.then((d) => setFuerzas(Array.isArray(d) ? d : []))
-			.catch(() => setFuerzas([]));
-	}, []);
+	const { ano, fuerza, setAno, setFuerza, resetFilters, anios, fuerzas, params, buildLink } = useAlertFilters();
 
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);
 		setError(null);
-		const params = { ano: ano || undefined, fuerza: fuerza || undefined };
 		Promise.all([getAlertsSummary(params), getAlertRiskScore(params)])
 			.then(([s, r]) => {
 				if (!cancelled) {
@@ -131,32 +113,15 @@ export default function AlertasDashboardPage() {
 				</Alert>
 			)}
 
-			<Stack direction={{ xs: "column", md: "row" }} spacing={2} flexWrap="wrap">
-				<FormControl size="small" sx={{ minWidth: 120 }}>
-					<InputLabel>Año</InputLabel>
-					<Select label="Año" value={ano} onChange={(e) => setAno(e.target.value)}>
-						{(anios.length ? anios : [CURRENT_YEAR, CURRENT_YEAR - 1]).map((a) => (
-							<MenuItem key={String(a)} value={String(a)}>
-								{a}
-							</MenuItem>
-						))}
-					</Select>
-				</FormControl>
-				<FormControl size="small" sx={{ minWidth: 200 }}>
-					<InputLabel>Fuerza</InputLabel>
-					<Select label="Fuerza" value={fuerza} onChange={(e) => setFuerza(e.target.value)}>
-						<MenuItem value="">Todas</MenuItem>
-						{fuerzas.map((f) => (
-							<MenuItem key={typeof f === "string" ? f : f.fuerza || f.nombre} value={typeof f === "string" ? f : f.fuerza || f.nombre}>
-								{typeof f === "string" ? f : f.fuerza || f.nombre || f.descripcion}
-							</MenuItem>
-						))}
-					</Select>
-				</FormControl>
-				<Button variant="outlined" size="small" onClick={() => { setAno(String(CURRENT_YEAR)); setFuerza(""); }}>
-					Restablecer filtros
-				</Button>
-			</Stack>
+			<AlertFilterBar
+				ano={ano}
+				fuerza={fuerza}
+				setAno={setAno}
+				setFuerza={setFuerza}
+				resetFilters={resetFilters}
+				anios={anios}
+				fuerzas={fuerzas}
+			/>
 
 			{loading && (
 				<Stack alignItems="center" py={4}>
@@ -185,9 +150,9 @@ export default function AlertasDashboardPage() {
 						Explorar por tipo de alerta
 					</Typography>
 					<Grid container spacing={2}>
-						{ALERT_TYPE_CARDS.map((a) => {
-							const total = porTipoChart.find((p) => p.name === a.code)?.total ?? "—";
-							const to = ALERT_PATHS[a.code];
+					{ALERT_TYPE_CARDS.map((a) => {
+						const total = porTipoChart.find((p) => p.name === a.code)?.total ?? "—";
+						const to = buildLink(ALERT_PATHS[a.code]);
 							return (
 								<Grid key={a.code} size={{ xs: 12, sm: 6, md: 4 }}>
 									<Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>

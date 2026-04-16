@@ -11,8 +11,10 @@ import Typography from "@mui/material/Typography";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { AlertDetailView } from "@/components/alertas/AlertDetailView";
+import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertHeterogeneousSupplier } from "@/services/helios-api";
+import { useAlertFilters } from "@/hooks/useAlertFilters";
 import { paths } from "@/paths";
 
 const COLUMNS = [
@@ -26,11 +28,12 @@ const COLUMNS = [
 export default function AlertasAt07Page() {
 	const [loading, setLoading] = useState(true);
 	const [data, setData] = useState({ rows: [] });
+	const { ano, setAno, anios, params, buildLink } = useAlertFilters();
 
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);
-		getAlertHeterogeneousSupplier({})
+		getAlertHeterogeneousSupplier(params)
 			.then((d) => {
 				if (!cancelled) setData(d || { rows: [] });
 			})
@@ -43,7 +46,7 @@ export default function AlertasAt07Page() {
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [ano]);
 
 	const rows = (data.rows || []).map((r) => ({
 		...r,
@@ -62,9 +65,10 @@ export default function AlertasAt07Page() {
 
 	return (
 		<Stack spacing={2}>
-			<Button component={RouterLink} to={paths.dashboard.alertas} size="small" variant="text">
+			<Button component={RouterLink} to={buildLink(paths.dashboard.alertas)} size="small" variant="text">
 				← Volver al resumen de alertas
 			</Button>
+			<AlertFilterBar ano={ano} setAno={setAno} anios={anios} compact />
 			<AlertDetailView
 				title="Proveedores con múltiples categorías UNSPSC"
 				subtitle="Variedad atípica de segmentos de compra por proveedor — AT-07."

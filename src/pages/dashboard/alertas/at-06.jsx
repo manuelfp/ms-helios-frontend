@@ -6,8 +6,10 @@ import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 
 import { AlertDetailView } from "@/components/alertas/AlertDetailView";
+import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertAnnuityExceeded } from "@/services/helios-api";
+import { useAlertFilters } from "@/hooks/useAlertFilters";
 import { paths } from "@/paths";
 
 const COLUMNS = [
@@ -23,11 +25,12 @@ const COLUMNS = [
 export default function AlertasAt06Page() {
 	const [loading, setLoading] = useState(true);
 	const [data, setData] = useState({ rows: [] });
+	const { ano, setAno, anios, params, buildLink } = useAlertFilters();
 
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);
-		getAlertAnnuityExceeded({})
+		getAlertAnnuityExceeded(params)
 			.then((d) => {
 				if (!cancelled) setData(d || { rows: [] });
 			})
@@ -40,7 +43,7 @@ export default function AlertasAt06Page() {
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [ano]);
 
 	const rows = (data.rows || []).map((r) => ({
 		...r,
@@ -49,9 +52,10 @@ export default function AlertasAt06Page() {
 
 	return (
 		<Stack spacing={2}>
-			<Button component={RouterLink} to={paths.dashboard.alertas} size="small" variant="text">
+			<Button component={RouterLink} to={buildLink(paths.dashboard.alertas)} size="small" variant="text">
 				← Volver al resumen de alertas
 			</Button>
+			<AlertFilterBar ano={ano} setAno={setAno} anios={anios} compact />
 			<AlertDetailView
 				title="Contratos que superan anualidad"
 				subtitle="Plazo modificado por adiciones de forma que el contrato cruza vigencias presupuestales — AT-06."

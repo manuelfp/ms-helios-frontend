@@ -11,9 +11,11 @@ import Typography from "@mui/material/Typography";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { AlertDetailView } from "@/components/alertas/AlertDetailView";
+import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { GraphViewer } from "@/components/core/graph-viewer";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertConcentrationCity } from "@/services/helios-api";
+import { useAlertFilters } from "@/hooks/useAlertFilters";
 import { paths } from "@/paths";
 
 const COLUMNS = [
@@ -27,11 +29,12 @@ const COLUMNS = [
 export default function AlertasAt04Page() {
 	const [loading, setLoading] = useState(true);
 	const [data, setData] = useState({ rows: [], graph: null });
+	const { ano, setAno, anios, params, buildLink } = useAlertFilters();
 
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);
-		getAlertConcentrationCity({})
+		getAlertConcentrationCity(params)
 			.then((d) => {
 				if (!cancelled) setData(d || { rows: [] });
 			})
@@ -44,7 +47,7 @@ export default function AlertasAt04Page() {
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [ano]);
 
 	const chartData = useMemo(
 		() =>
@@ -57,9 +60,10 @@ export default function AlertasAt04Page() {
 
 	return (
 		<Stack spacing={2}>
-			<Button component={RouterLink} to={paths.dashboard.alertas} size="small" variant="text">
+			<Button component={RouterLink} to={buildLink(paths.dashboard.alertas)} size="small" variant="text">
 				← Volver al resumen de alertas
 			</Button>
+			<AlertFilterBar ano={ano} setAno={setAno} anios={anios} compact />
 			<AlertDetailView
 				title="Concentración proveedor × ciudad"
 				subtitle="Participación atípica del proveedor en el mercado local (ciudad) — AT-04."

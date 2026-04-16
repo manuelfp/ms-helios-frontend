@@ -7,8 +7,10 @@ import Stack from "@mui/material/Stack";
 
 import { Iconify } from "@/components/core";
 import { AlertDetailView } from "@/components/alertas/AlertDetailView";
+import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertSingleBidder } from "@/services/helios-api";
+import { useAlertFilters } from "@/hooks/useAlertFilters";
 import { paths } from "@/paths";
 
 const COLUMNS = [
@@ -23,11 +25,12 @@ const COLUMNS = [
 export default function AlertasAt01Page() {
 	const [loading, setLoading] = useState(true);
 	const [data, setData] = useState({ rows: [] });
+	const { ano, setAno, anios, params, buildLink } = useAlertFilters();
 
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);
-		getAlertSingleBidder({})
+		getAlertSingleBidder(params)
 			.then((d) => {
 				if (!cancelled) setData(d || { rows: [] });
 			})
@@ -40,19 +43,20 @@ export default function AlertasAt01Page() {
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [ano]);
 
 	return (
 		<Stack spacing={2}>
 			<Button
 				component={RouterLink}
-				to={paths.dashboard.alertas}
+				to={buildLink(paths.dashboard.alertas)}
 				size="small"
 				startIcon={<Iconify icon="solar:arrow-left-bold-duotone" width={18} />}
 				variant="text"
 			>
 				Volver al resumen de alertas
 			</Button>
+			<AlertFilterBar ano={ano} setAno={setAno} anios={anios} compact />
 			<AlertDetailView
 				title="Único oferente en procesos competitivos"
 				subtitle="Contratos con un solo oferente en modalidades que requieren pluralidad (AT-01)."
