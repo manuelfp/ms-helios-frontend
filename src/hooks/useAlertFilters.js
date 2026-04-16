@@ -11,8 +11,8 @@ export function useAlertFilters() {
 	const [anios, setAnios] = useState([]);
 	const [fuerzas, setFuerzas] = useState([]);
 
-	const rawAno = searchParams.get("ano");
-	const rawFuerza = searchParams.get("fuerza") || "";
+	const [ano, _setAno] = useState(() => searchParams.get("ano") || FALLBACK_YEAR);
+	const [fuerza, _setFuerza] = useState(() => searchParams.get("fuerza") || "");
 
 	useEffect(() => {
 		getCatalogAnios()
@@ -23,30 +23,15 @@ export function useAlertFilters() {
 			.catch(() => setFuerzas([]));
 	}, []);
 
-	const ano = rawAno || FALLBACK_YEAR;
-	const fuerza = rawFuerza;
-
-	useEffect(() => {
-		if (!rawAno) {
-			setSearchParams(
-				(prev) => {
-					const next = new URLSearchParams(prev);
-					next.set("ano", FALLBACK_YEAR);
-					return next;
-				},
-				{ replace: true },
-			);
-		}
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
-
 	const setAno = useCallback(
 		(v) => {
+			const next = v || FALLBACK_YEAR;
+			_setAno(next);
 			setSearchParams(
 				(prev) => {
-					const next = new URLSearchParams(prev);
-					if (v) next.set("ano", v);
-					else next.delete("ano");
-					return next;
+					const sp = new URLSearchParams(prev);
+					sp.set("ano", next);
+					return sp;
 				},
 				{ replace: true },
 			);
@@ -56,12 +41,13 @@ export function useAlertFilters() {
 
 	const setFuerza = useCallback(
 		(v) => {
+			_setFuerza(v || "");
 			setSearchParams(
 				(prev) => {
-					const next = new URLSearchParams(prev);
-					if (v) next.set("fuerza", v);
-					else next.delete("fuerza");
-					return next;
+					const sp = new URLSearchParams(prev);
+					if (v) sp.set("fuerza", v);
+					else sp.delete("fuerza");
+					return sp;
 				},
 				{ replace: true },
 			);
@@ -70,12 +56,14 @@ export function useAlertFilters() {
 	);
 
 	const resetFilters = useCallback(() => {
+		_setAno(FALLBACK_YEAR);
+		_setFuerza("");
 		setSearchParams(
 			(prev) => {
-				const next = new URLSearchParams(prev);
-				next.set("ano", FALLBACK_YEAR);
-				next.delete("fuerza");
-				return next;
+				const sp = new URLSearchParams(prev);
+				sp.set("ano", FALLBACK_YEAR);
+				sp.delete("fuerza");
+				return sp;
 			},
 			{ replace: true },
 		);
