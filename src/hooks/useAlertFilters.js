@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useSearchParams } from "react-router-dom";
 
 import { getCatalogAnios, getCatalogFuerzas } from "@/services/helios-api";
 
-const FALLBACK_YEAR = "2025";
+const FALLBACK_YEAR = "2024";
 
 export function useAlertFilters() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [anios, setAnios] = useState([]);
 	const [fuerzas, setFuerzas] = useState([]);
+	const didSetDefault = useRef(false);
 
 	const rawAno = searchParams.get("ano");
 	const rawFuerza = searchParams.get("fuerza") || "";
@@ -22,6 +23,21 @@ export function useAlertFilters() {
 			.then((d) => setFuerzas(Array.isArray(d) ? d : []))
 			.catch(() => setFuerzas([]));
 	}, []);
+
+	useEffect(() => {
+		if (!rawAno && !didSetDefault.current) {
+			const defaultYear = anios.length ? String(anios[0]) : FALLBACK_YEAR;
+			didSetDefault.current = true;
+			setSearchParams(
+				(prev) => {
+					const next = new URLSearchParams(prev);
+					next.set("ano", defaultYear);
+					return next;
+				},
+				{ replace: true },
+			);
+		}
+	}, [rawAno, anios, setSearchParams]);
 
 	const ano = rawAno || (anios.length ? String(anios[0]) : FALLBACK_YEAR);
 	const fuerza = rawFuerza;
@@ -57,6 +73,7 @@ export function useAlertFilters() {
 	);
 
 	const resetFilters = useCallback(() => {
+		didSetDefault.current = false;
 		setSearchParams({}, { replace: true });
 	}, [setSearchParams]);
 
