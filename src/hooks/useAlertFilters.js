@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useSearchParams } from "react-router-dom";
 
@@ -10,7 +10,6 @@ export function useAlertFilters() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [anios, setAnios] = useState([]);
 	const [fuerzas, setFuerzas] = useState([]);
-	const didSetDefault = useRef(false);
 
 	const rawAno = searchParams.get("ano");
 	const rawFuerza = searchParams.get("fuerza") || "";
@@ -24,23 +23,21 @@ export function useAlertFilters() {
 			.catch(() => setFuerzas([]));
 	}, []);
 
+	const ano = rawAno || FALLBACK_YEAR;
+	const fuerza = rawFuerza;
+
 	useEffect(() => {
-		if (!rawAno && !didSetDefault.current) {
-			const defaultYear = anios.length ? String(anios[0]) : FALLBACK_YEAR;
-			didSetDefault.current = true;
+		if (!rawAno) {
 			setSearchParams(
 				(prev) => {
 					const next = new URLSearchParams(prev);
-					next.set("ano", defaultYear);
+					next.set("ano", FALLBACK_YEAR);
 					return next;
 				},
 				{ replace: true },
 			);
 		}
-	}, [rawAno, anios, setSearchParams]);
-
-	const ano = rawAno || (anios.length ? String(anios[0]) : FALLBACK_YEAR);
-	const fuerza = rawFuerza;
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const setAno = useCallback(
 		(v) => {
@@ -73,8 +70,15 @@ export function useAlertFilters() {
 	);
 
 	const resetFilters = useCallback(() => {
-		didSetDefault.current = false;
-		setSearchParams({}, { replace: true });
+		setSearchParams(
+			(prev) => {
+				const next = new URLSearchParams(prev);
+				next.set("ano", FALLBACK_YEAR);
+				next.delete("fuerza");
+				return next;
+			},
+			{ replace: true },
+		);
 	}, [setSearchParams]);
 
 	const params = { ano: ano || undefined, fuerza: fuerza || undefined };
