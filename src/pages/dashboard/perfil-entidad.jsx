@@ -21,8 +21,9 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 
 import { RiskBadge } from "@/components/alertas/RiskBadge";
 import { GraphViewer } from "@/components/core/graph-viewer";
-import { Iconify } from "@/components/core";
-import { getEntityAlertProfile } from "@/services/helios-api";
+import { DataSourceBadge, Iconify } from "@/components/core";
+import { ReconciliationPanel } from "@/components/core/reconciliation-panel";
+import { getEntityAlertProfile, getReconciliation } from "@/services/helios-api";
 import { paths } from "@/paths";
 import { fNumber } from "@/utils/format";
 
@@ -31,6 +32,9 @@ export default function PerfilEntidadPage() {
 	const [loading, setLoading] = useState(true);
 	const [data, setData] = useState(null);
 	const [error, setError] = useState(null);
+	const [reconLoading, setReconLoading] = useState(false);
+	const [recon, setRecon] = useState(null);
+	const [reconError, setReconError] = useState(null);
 
 	useEffect(() => {
 		if (!nit) return;
@@ -51,6 +55,27 @@ export default function PerfilEntidadPage() {
 			cancelled = true;
 		};
 	}, [nit]);
+
+	useEffect(() => {
+		const doc = data?.nit_entidad != null ? String(data.nit_entidad) : nit;
+		if (!doc) return;
+		let cancelled = false;
+		setReconLoading(true);
+		setReconError(null);
+		getReconciliation(doc)
+			.then((r) => {
+				if (!cancelled) setRecon(r);
+			})
+			.catch((e) => {
+				if (!cancelled) setReconError(e?.message || "No se pudo cargar la conciliación");
+			})
+			.finally(() => {
+				if (!cancelled) setReconLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [data?.nit_entidad, nit]);
 
 	const modalidadChart = (data?.distribucion_modalidad || []).map((x) => ({
 		name: (x.modalidad || "").slice(0, 24),
@@ -85,6 +110,7 @@ export default function PerfilEntidadPage() {
 							</Typography>
 						</Box>
 						<Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+							<DataSourceBadge meta={data._meta} />
 							<RiskBadge nivel={data.nivel_riesgo} score={data.score} size="medium" />
 							{data.mock && <Chip size="small" label="Datos demo" color="info" variant="outlined" />}
 						</Stack>
@@ -153,6 +179,8 @@ export default function PerfilEntidadPage() {
 							</Card>
 						</Grid>
 					</Grid>
+
+					<ReconciliationPanel data={recon} loading={reconLoading} error={reconError} />
 
 					{data.graph?.nodes?.length > 0 && (
 						<Card variant="outlined" sx={{ borderRadius: 2, p: 2 }}>

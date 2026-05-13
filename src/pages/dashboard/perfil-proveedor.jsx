@@ -19,8 +19,9 @@ import Typography from "@mui/material/Typography";
 
 import { RiskBadge } from "@/components/alertas/RiskBadge";
 import { GraphViewer } from "@/components/core/graph-viewer";
-import { Iconify } from "@/components/core";
-import { getProviderAlertProfile } from "@/services/helios-api";
+import { DataSourceBadge, Iconify } from "@/components/core";
+import { ReconciliationPanel } from "@/components/core/reconciliation-panel";
+import { getProviderAlertProfile, getReconciliation } from "@/services/helios-api";
 import { paths } from "@/paths";
 import { fCurrency, fNumber } from "@/utils/format";
 
@@ -29,6 +30,9 @@ export default function PerfilProveedorPage() {
 	const [loading, setLoading] = useState(true);
 	const [data, setData] = useState(null);
 	const [error, setError] = useState(null);
+	const [reconLoading, setReconLoading] = useState(false);
+	const [recon, setRecon] = useState(null);
+	const [reconError, setReconError] = useState(null);
 
 	useEffect(() => {
 		if (!documento) return;
@@ -49,6 +53,27 @@ export default function PerfilProveedorPage() {
 			cancelled = true;
 		};
 	}, [documento]);
+
+	useEffect(() => {
+		const doc = data?.documento || documento;
+		if (!doc) return;
+		let cancelled = false;
+		setReconLoading(true);
+		setReconError(null);
+		getReconciliation(doc)
+			.then((r) => {
+				if (!cancelled) setRecon(r);
+			})
+			.catch((e) => {
+				if (!cancelled) setReconError(e?.message || "No se pudo cargar la conciliación");
+			})
+			.finally(() => {
+				if (!cancelled) setReconLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [data?.documento, documento]);
 
 	const alertas = data?.alertas_por_tipo || {};
 	const entries = Object.entries(alertas);
@@ -75,6 +100,7 @@ export default function PerfilProveedorPage() {
 							</Typography>
 						</Box>
 						<Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+							<DataSourceBadge meta={data._meta} />
 							<RiskBadge nivel={data.nivel_riesgo} score={data.score} size="medium" />
 							{data.mock && <Chip size="small" label="Datos demo" color="info" variant="outlined" />}
 						</Stack>
@@ -109,7 +135,7 @@ export default function PerfilProveedorPage() {
 									<Stack spacing={1}>
 										<Button
 											component={RouterLink}
-											to={paths.dashboard.investigacion}
+											to={`${paths.dashboard.investigacion}?doc=${encodeURIComponent(String(data.documento || "").trim())}`}
 											variant="outlined"
 											size="small"
 											startIcon={<Iconify icon="solar:magnifer-bold-duotone" width={18} />}
@@ -124,6 +150,8 @@ export default function PerfilProveedorPage() {
 							</Card>
 						</Grid>
 					</Grid>
+
+					<ReconciliationPanel data={recon} loading={reconLoading} error={reconError} />
 
 					{data.contratos_recientes?.length > 0 && (
 						<Card variant="outlined" sx={{ borderRadius: 2 }}>

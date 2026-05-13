@@ -15,6 +15,11 @@ export function useAlertFilters() {
 	const [fuerza, _setFuerza] = useState(() => searchParams.get("fuerza") || "");
 
 	useEffect(() => {
+		_setAno(searchParams.get("ano") || FALLBACK_YEAR);
+		_setFuerza(searchParams.get("fuerza") || "");
+	}, [searchParams]);
+
+	useEffect(() => {
 		getCatalogAnios()
 			.then((d) => setAnios(Array.isArray(d) ? d : []))
 			.catch(() => setAnios([]));

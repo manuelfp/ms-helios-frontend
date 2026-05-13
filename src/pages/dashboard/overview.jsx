@@ -40,7 +40,8 @@ import {
 } from "recharts";
 
 import { dashboardStream, getCatalogAnios } from "@/services/helios-api";
-import { Iconify } from "@/components/core";
+import { DataSourceBadge, Iconify } from "@/components/core";
+import { useExpertMode } from "@/contexts/expert-mode-context";
 import { usePrivacy } from "@/hooks/use-privacy";
 import { fCurrency, fNumber, maskDoc, maskName } from "@/utils/format";
 
@@ -166,6 +167,7 @@ function truncate(str, max = 30) {
 
 export default function OverviewPage() {
 	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
+	const { expertMode } = useExpertMode();
 
 	const [selectedYear, setSelectedYear] = useState(2025);
 	const [anios, setAnios] = useState([]);
@@ -175,6 +177,7 @@ export default function OverviewPage() {
 	const [streaming, setStreaming] = useState(false);
 	const [error, setError] = useState(null);
 	const [receivedKeys, setReceivedKeys] = useState(new Set());
+	const [streamMeta, setStreamMeta] = useState(null);
 
 	const abortRef = useRef(null);
 
@@ -194,6 +197,7 @@ export default function OverviewPage() {
 
 		setKpis({});
 		setReceivedKeys(new Set());
+		setStreamMeta(null);
 		setStreaming(true);
 		setError(null);
 
@@ -209,6 +213,10 @@ export default function OverviewPage() {
 						setKpis((prev) => ({ ...prev, [payload.key]: payload.data }));
 						setReceivedKeys((prev) => new Set(prev).add(payload.key));
 					}
+				},
+
+				meta(payload) {
+					setStreamMeta(payload);
 				},
 
 				complete() {},
@@ -280,7 +288,7 @@ export default function OverviewPage() {
 					</Typography>
 				</Box>
 
-				<Stack direction="row" spacing={2} alignItems="center">
+				<Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
 					{streaming && (
 						<Stack direction="row" spacing={1} alignItems="center">
 							<CircularProgress size={18} thickness={5} />
@@ -289,6 +297,7 @@ export default function OverviewPage() {
 							</Typography>
 						</Stack>
 					)}
+					<DataSourceBadge meta={streamMeta} compact={expertMode} />
 					<FormControl size="small" sx={{ minWidth: 160 }}>
 						<InputLabel>Año</InputLabel>
 						<Select

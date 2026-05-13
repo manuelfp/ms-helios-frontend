@@ -48,7 +48,8 @@ import {
 	getCatalogAnios,
 } from "@/services/helios-api";
 
-import { Iconify } from "@/components/core";
+import { DataSourceBadge, Iconify } from "@/components/core";
+import { useExpertMode } from "@/contexts/expert-mode-context";
 import { fCurrency, fNumber } from "@/utils/format";
 
 const CHART_COLORS = [
@@ -727,6 +728,7 @@ const TAB_CONFIG = [
 const YEAR_TABS = new Set([0, 3, 4, 5]);
 
 export default function EstadisticasPage() {
+	const { expertMode } = useExpertMode();
 	const [tab, setTab] = useState(0);
 	const [year, setYear] = useState(2025);
 	const [anios, setAnios] = useState([]);
@@ -772,7 +774,8 @@ export default function EstadisticasPage() {
 					)}
 				</Box>
 
-				<Stack direction="row" spacing={2} alignItems="center">
+				<Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+					<DataSourceBadge meta={dashboard?._meta} compact={expertMode} />
 					{!dashLoading && resumen.total_contratos && (
 						<Chip
 							label={`${fNumber(resumen.total_contratos)} contratos — ${fCurrency(resumen.monto_total)}`}

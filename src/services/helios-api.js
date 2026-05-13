@@ -78,6 +78,9 @@ export const naturalQuery = (question, user) =>
 export const contractSearch = (filters = {}) =>
 	axios.post("/bigquery/search", filters).then((r) => r.data);
 
+export const getReconciliation = (documento) =>
+	axios.get(`/bigquery/reconciliation/${encodeURIComponent(String(documento || "").trim())}`).then((r) => r.data);
+
 // ─── Investigación por CC/NIT ─────────────────────────────────────
 export const investigate = (documento, user) =>
 	axios.post("/bigquery/investigate", { documento, user }).then((r) => r.data);

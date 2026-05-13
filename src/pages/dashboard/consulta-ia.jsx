@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -26,10 +27,15 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import LoadingButton from "@mui/lab/LoadingButton";
 
-import { Iconify } from "@/components/core";
+import Button from "@mui/material/Button";
+
+import { AIGeneratedBadge, DataSourceBadge, Iconify } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
+import { SQLViewerModal } from "@/components/core/sql-viewer-modal";
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
+import { useExpertMode } from "@/contexts/expert-mode-context";
 import { naturalQuery } from "@/services/helios-api";
+import { isPlaceholderName } from "@/utils/placeholder-names";
 import { fCurrency, fNumber } from "@/utils/format";
 
 function neo4jInt(v) {
@@ -185,13 +191,22 @@ const EXAMPLE_QUESTIONS = [
 
 export default function ConsultaIAPage() {
 	const { user } = useAuthContext();
+	const { expertMode } = useExpertMode();
+	const [searchParams, setSearchParams] = useSearchParams();
 
-	const [question, setQuestion] = useState("");
+	const [question, setQuestion] = useState(() => searchParams.get("q") || "");
 	const [loading, setLoading] = useState(false);
 	const [result, setResult] = useState(null);
 	const [error, setError] = useState(null);
 	const [showQueries, setShowQueries] = useState(false);
 	const [selectedNode, setSelectedNode] = useState(null);
+	const [sqlOpen, setSqlOpen] = useState(false);
+
+	useEffect(() => {
+		const q = searchParams.get("q");
+		if (q == null) return;
+		setQuestion((prev) => (q !== prev ? q : prev));
+	}, [searchParams]);
 
 	const handleSubmit = async () => {
 		const trimmed = question.trim();
@@ -201,6 +216,15 @@ export default function ConsultaIAPage() {
 		setError(null);
 		setResult(null);
 		setSelectedNode(null);
+
+		setSearchParams(
+			(prev) => {
+				const n = new URLSearchParams(prev);
+				n.set("q", trimmed);
+				return n;
+			},
+			{ replace: true },
+		);
 
 		try {
 			const data = await naturalQuery(trimmed, user?.email);
@@ -379,11 +403,26 @@ export default function ConsultaIAPage() {
 						<Card>
 							<CardContent>
 								<Stack spacing={2}>
-									<Stack direction="row" spacing={1} alignItems="center">
+									<Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
 										<Iconify icon="solar:document-text-bold-duotone" width={22} sx={{ color: "primary.main" }} />
 										<Typography variant="subtitle1">Resultados</Typography>
 										<Chip label={`${result.response_data.resultSet.length} registros`} size="small" />
+										{result._meta && <DataSourceBadge meta={result._meta} compact={!expertMode} />}
+										<AIGeneratedBadge variant="sql" compact={!expertMode} />
+										{expertMode && result._meta?.sql_executed && (
+											<Button size="small" variant="outlined" onClick={() => setSqlOpen(true)}>
+												Ver SQL ejecutada
+											</Button>
+										)}
 									</Stack>
+
+									<SQLViewerModal
+										open={sqlOpen}
+										onClose={() => setSqlOpen(false)}
+										title="SQL ejecutada (Consulta IA)"
+										sql={result._meta?.sql_executed || result.queries?.query_for_response || null}
+										secondarySql={result._meta?.sql_graph || result.queries?.query_for_graph || null}
+									/>
 
 									<ResultsTable data={result.response_data.resultSet} />
 								</Stack>
@@ -531,6 +570,13 @@ function RowDetailDialog({ row, open, onClose }) {
 	);
 }
 
+function rowLooksPlaceholder(row) {
+	for (const v of Object.values(row)) {
+		if (isPlaceholderName(v)) return true;
+	}
+	return false;
+}
+
 function ResultsTable({ data }) {
 	const [detailRow, setDetailRow] = useState(null);
 
@@ -554,7 +600,11 @@ function ResultsTable({ data }) {
 					</TableHead>
 					<TableBody>
 						{data.map((row, idx) => (
-							<TableRow key={idx} hover>
+							<TableRow
+								key={idx}
+								hover
+								sx={rowLooksPlaceholder(row) ? { bgcolor: "action.selected", opacity: 0.92 } : undefined}
+							>
 								<TableCell sx={{ px: 0.5 }}>
 									<Tooltip title="Ver detalle" arrow>
 										<IconButton size="small" onClick={() => setDetailRow(row)} sx={{ color: "primary.main" }}>

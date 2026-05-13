@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -11,6 +12,7 @@ import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -18,15 +20,25 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import LoadingButton from "@mui/lab/LoadingButton";
+import Button from "@mui/material/Button";
 
-import { Iconify } from "@/components/core";
+import { AIGeneratedBadge, DataSourceBadge, Iconify } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
+import { ReconciliationPanel } from "@/components/core/reconciliation-panel";
+import { SQLViewerModal } from "@/components/core/sql-viewer-modal";
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
+import { useExpertMode } from "@/contexts/expert-mode-context";
 import { usePrivacy } from "@/hooks/use-privacy";
-import { investigate, investigateStream } from "@/services/helios-api";
+import { getReconciliation, investigate, investigateStream } from "@/services/helios-api";
+import { paths } from "@/paths";
 import { fCurrency, fNumber, maskDoc, maskName } from "@/utils/format";
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -74,9 +86,11 @@ const QUERY_STATUS = { pending: "pending", running: "running", done: "done" };
 
 export default function InvestigacionPage() {
 	const { user } = useAuthContext();
+	const { expertMode } = useExpertMode();
 	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
+	const [searchParams, setSearchParams] = useSearchParams();
 
-	const [documento, setDocumento] = useState("");
+	const [documento, setDocumento] = useState(() => searchParams.get("doc") || "");
 
 	// Stream state
 	const [streaming, setStreaming] = useState(false);
@@ -91,6 +105,10 @@ export default function InvestigacionPage() {
 	const [analysisStreaming, setAnalysisStreaming] = useState(false);
 	const [progress, setProgress] = useState({ completed: 0, total: 0 });
 	const [complete, setComplete] = useState(false);
+	const [streamProvenance, setStreamProvenance] = useState(null);
+	const [reconciliation, setReconciliation] = useState(null);
+	const [reconciliationError, setReconciliationError] = useState(null);
+	const [reconciliationLoading, setReconciliationLoading] = useState(false);
 
 	const abortRef = useRef(null);
 	const analysisAccRef = useRef("");
@@ -104,8 +122,18 @@ export default function InvestigacionPage() {
 		setProgress({ completed: 0, total: 0 });
 		setComplete(false);
 		setError(null);
+		setStreamProvenance(null);
+		setReconciliation(null);
+		setReconciliationError(null);
+		setReconciliationLoading(false);
 		analysisAccRef.current = "";
 	}, []);
+
+	useEffect(() => {
+		const d = searchParams.get("doc");
+		if (d == null) return;
+		setDocumento((prev) => (d !== prev ? d : prev));
+	}, [searchParams]);
 
 	const handleSubmit = useCallback(async () => {
 		const trimmed = documento.trim();
@@ -114,11 +142,25 @@ export default function InvestigacionPage() {
 		reset();
 		setStreaming(true);
 
+		setSearchParams(
+			(prev) => {
+				const n = new URLSearchParams(prev);
+				if (trimmed) n.set("doc", trimmed);
+				else n.delete("doc");
+				return n;
+			},
+			{ replace: true },
+		);
+
 		const ctrl = new AbortController();
 		abortRef.current = ctrl;
 
 		try {
 			await investigateStream(trimmed, user?.email, {
+				meta(payload) {
+					if (payload?.provenance) setStreamProvenance(payload.provenance);
+				},
+
 				investigation_start(payload) {
 					setQueries(
 						(payload.queries || []).map((q) => ({
@@ -150,6 +192,9 @@ export default function InvestigacionPage() {
 							found: payload.found,
 							data: payload.data || null,
 							duration_ms: payload.duration_ms,
+							sql: payload.sql || null,
+							graph_sql: payload.graph_sql || null,
+							params: payload.params || null,
 						},
 					}));
 					setProgress((prev) => ({ ...prev, completed: prev.completed + 1 }));
@@ -190,6 +235,12 @@ export default function InvestigacionPage() {
 					if (payload.graph_summary) {
 						setGraphSummary(payload.graph_summary);
 					}
+					setReconciliationLoading(true);
+					setReconciliationError(null);
+					getReconciliation(trimmed)
+						.then((d) => setReconciliation(d))
+						.catch((e) => setReconciliationError(e?.message || "Error al cargar conciliación"))
+						.finally(() => setReconciliationLoading(false));
 				},
 			}, ctrl.signal);
 		} catch (err) {
@@ -200,7 +251,7 @@ export default function InvestigacionPage() {
 			setStreaming(false);
 			abortRef.current = null;
 		}
-	}, [documento, streaming, user?.email, reset]);
+	}, [documento, streaming, user?.email, reset, setSearchParams]);
 
 	const handleCancel = useCallback(() => {
 		abortRef.current?.abort();
@@ -227,6 +278,21 @@ export default function InvestigacionPage() {
 					Ingresa un número de cédula o NIT para obtener un análisis completo de su actividad en
 					contratación estatal.
 				</Typography>
+				{streamProvenance && (
+					<Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" useFlexGap>
+						<DataSourceBadge meta={streamProvenance} compact={!expertMode} />
+						{documento.trim() && (
+							<Button
+								component={RouterLink}
+								to={`${paths.dashboard.contratos}?documento=${encodeURIComponent(documento.trim())}`}
+								size="small"
+								variant="outlined"
+							>
+								Ir a Contratos con este documento
+							</Button>
+						)}
+					</Stack>
+				)}
 			</Stack>
 
 			{/* ─── Input ─────────────────────────────────── */}
@@ -372,8 +438,14 @@ export default function InvestigacionPage() {
 						/>
 					)}
 
+					{hasAnyResult && <RoleBreakdownSection results={results} />}
+
 					{/* Statistics */}
-					{analysis.estadisticas && <StatisticsSection stats={analysis.estadisticas} />}
+					{analysis.estadisticas && <StatisticsSection stats={analysis.estadisticas} expertMode={expertMode} />}
+
+					{complete && (reconciliationLoading || reconciliation || reconciliationError) && (
+						<ReconciliationPanel data={reconciliation} loading={reconciliationLoading} error={reconciliationError} />
+					)}
 
 					{/* Hallazgos */}
 					{analysis.hallazgos?.length > 0 && <HallazgosSection hallazgos={analysis.hallazgos} />}
@@ -417,6 +489,7 @@ export default function InvestigacionPage() {
 					visibleChars={visibleChars}
 					visibleLastChars={visibleLastChars}
 					maskChar={maskChar}
+					expertMode={expertMode}
 				/>
 			)}
 
@@ -561,12 +634,71 @@ function ProfileSection({ perfil, obfuscate, visibleChars, visibleLastChars, mas
 	);
 }
 
-function StatisticsSection({ stats }) {
+function RoleBreakdownSection({ results }) {
+	const roleRows = [
+		{ key: "contracts_as_provider", label: "Como proveedor (documento_proveedor)" },
+		{ key: "contracts_as_entity", label: "Como entidad contratante (nit_entidad)" },
+		{ key: "contracts_as_representative", label: "Como representante legal" },
+		{ key: "contracts_as_ordering_authority", label: "Como ordenador del gasto" },
+	];
+
+	let sum = 0;
+	const rows = [];
+	for (const { key, label } of roleRows) {
+		const sec = results[key];
+		if (!sec?.found || !sec.data?.[0]) continue;
+		const n = Number(sec.data[0].total_contratos ?? 0);
+		if (!Number.isFinite(n) || n <= 0) continue;
+		sum += n;
+		rows.push({ key, label, n });
+	}
+
+	if (rows.length === 0) return null;
+
+	return (
+		<Card sx={{ borderLeft: 4, borderColor: "primary.main" }}>
+			<CardContent>
+				<Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+					<Iconify icon="solar:calculator-bold-duotone" width={22} sx={{ color: "primary.main" }} />
+					<Typography variant="subtitle1">Desglose por rol (SQL)</Typography>
+				</Stack>
+				<Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+					Estos totales provienen de las consultas paralelas a <code>vw_contratos_electronicos</code>. La suma puede
+					superar contratos únicos si el mismo NIT actúa en más de un rol; no deduplica <code>id_contrato</code> entre roles.
+				</Typography>
+				<Table size="small">
+					<TableHead>
+						<TableRow>
+							<TableCell>Rol</TableCell>
+							<TableCell align="right">Filas / contratos (COUNT)</TableCell>
+						</TableRow>
+					</TableHead>
+					<TableBody>
+						{rows.map((r) => (
+							<TableRow key={r.key}>
+								<TableCell>{r.label}</TableCell>
+								<TableCell align="right">{fNumber(r.n)}</TableCell>
+							</TableRow>
+						))}
+						<TableRow>
+							<TableCell sx={{ fontWeight: 700 }}>Suma de roles</TableCell>
+							<TableCell align="right" sx={{ fontWeight: 700 }}>
+								{fNumber(sum)}
+							</TableCell>
+						</TableRow>
+					</TableBody>
+				</Table>
+			</CardContent>
+		</Card>
+	);
+}
+
+function StatisticsSection({ stats, expertMode }) {
 	const cards = [
-		{ label: "Total contratos", value: fNumber(stats.total_contratos), icon: "solar:document-text-bold-duotone", color: "primary" },
-		{ label: "Valor total estimado", value: fCurrency(stats.valor_total_estimado), icon: "solar:wallet-money-bold-duotone", color: "secondary" },
-		{ label: "Entidades relacionadas", value: fNumber(stats.entidades_relacionadas), icon: "solar:buildings-2-bold-duotone", color: "info" },
-		{ label: "Período", value: stats.periodo || "—", icon: "solar:calendar-bold-duotone", color: "success" },
+		{ label: "Filas asociadas al NIT (todos los roles)", value: fNumber(stats.total_contratos), icon: "solar:document-text-bold-duotone", color: "primary" },
+		{ label: "Valor sumado (posibles modificaciones)", value: fCurrency(stats.valor_total_estimado), icon: "solar:wallet-money-bold-duotone", color: "secondary" },
+		{ label: "Entidades relacionadas (aprox.)", value: fNumber(stats.entidades_relacionadas), icon: "solar:buildings-2-bold-duotone", color: "info" },
+		{ label: "Período cubierto por los datos", value: stats.periodo || "—", icon: "solar:calendar-bold-duotone", color: "success" },
 	];
 
 	const extras = [];
@@ -579,9 +711,10 @@ function StatisticsSection({ stats }) {
 
 	return (
 		<Stack spacing={2}>
-			<Stack direction="row" spacing={1} alignItems="center">
+			<Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
 				<Iconify icon="solar:chart-bold-duotone" width={22} sx={{ color: "info.main" }} />
 				<Typography variant="subtitle1">Estadísticas</Typography>
+				<AIGeneratedBadge variant="analysis" compact={!expertMode} />
 			</Stack>
 
 			<Grid container spacing={2}>
@@ -683,12 +816,22 @@ function HallazgosSection({ hallazgos }) {
 	);
 }
 
-function SectionsAccordion({ results, obfuscate, visibleChars, visibleLastChars, maskChar }) {
+function SectionsAccordion({ results, obfuscate, visibleChars, visibleLastChars, maskChar, expertMode }) {
 	const sectionKeys = Object.keys(results);
+	const [sqlModal, setSqlModal] = useState({ open: false, title: "", sql: "", graph_sql: null });
+
 	if (!sectionKeys.length) return null;
 
 	return (
 		<Stack spacing={2}>
+			<SQLViewerModal
+				open={sqlModal.open}
+				onClose={() => setSqlModal((s) => ({ ...s, open: false }))}
+				title={sqlModal.title}
+				sql={sqlModal.sql}
+				secondarySql={sqlModal.graph_sql}
+			/>
+
 			<Stack direction="row" spacing={1} alignItems="center">
 				<Iconify icon="solar:folder-open-bold-duotone" width={22} sx={{ color: "primary.main" }} />
 				<Typography variant="subtitle1">Secciones de investigación</Typography>
@@ -708,6 +851,23 @@ function SectionsAccordion({ results, obfuscate, visibleChars, visibleLastChars,
 								<Typography variant="subtitle2" sx={{ flex: 1 }}>
 									{section.label || key}
 								</Typography>
+								{expertMode && section.sql && (
+									<IconButton
+										size="small"
+										onClick={(e) => {
+											e.stopPropagation();
+											setSqlModal({
+												open: true,
+												title: section.label || key,
+												sql: section.sql,
+												graph_sql: section.graph_sql || null,
+											});
+										}}
+										aria-label="Ver SQL"
+									>
+										<Iconify icon="solar:code-bold-duotone" width={20} />
+									</IconButton>
+								)}
 								{section.duration_ms != null && (
 									<Typography variant="caption" color="text.disabled" sx={{ mr: 1 }}>
 										{(section.duration_ms / 1000).toFixed(1)}s

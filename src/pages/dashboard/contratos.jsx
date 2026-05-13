@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -32,8 +32,10 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import LoadingButton from "@mui/lab/LoadingButton";
 
-import { Iconify } from "@/components/core";
+import { Iconify, DataSourceBadge } from "@/components/core";
 import { GraphViewer } from "@/components/core/graph-viewer";
+import { useExpertMode } from "@/contexts/expert-mode-context";
+import { CONTRATOS_URL_DEFAULTS, useUrlFilters } from "@/hooks/use-url-filters";
 import { usePrivacy } from "@/hooks/use-privacy";
 import {
 	contractSearch,
@@ -301,25 +303,20 @@ function NodeDetailCard({ node, onClose }) {
 
 export default function ContratosPage() {
 	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
+	const { expertMode } = useExpertMode();
 	const [fuerzas, setFuerzas] = useState([]);
 	const [anios, setAnios] = useState([]);
 
-	const [filters, setFilters] = useState({
-		fuerza: "",
-		ano: 2025,
-		entidad: "",
-		ciudad: "",
-		proveedor: "",
-		documento: "",
-		limit: 30,
-	});
+	const [filters, setFilters] = useUrlFilters(CONTRATOS_URL_DEFAULTS);
 
 	const [searching, setSearching] = useState(false);
 	const [graphLoading, setGraphLoading] = useState(false);
 	const [error, setError] = useState(null);
 	const [tableResult, setTableResult] = useState(null);
+	const [searchMeta, setSearchMeta] = useState(null);
 	const [graphData, setGraphData] = useState({ nodes: [], links: [] });
 	const [selectedNode, setSelectedNode] = useState(null);
+	const autoSearchDone = useRef(false);
 
 	const entidadCatalog = useDebouncedCatalog(getCatalogEntidades);
 	const ciudadCatalog = useDebouncedCatalog(getCatalogCiudades);
@@ -333,8 +330,12 @@ export default function ContratosPage() {
 	}, []);
 
 	const updateFilter = (key) => (e, newValue) => {
-		const val = newValue !== undefined ? newValue : e?.target?.value ?? "";
-		setFilters((prev) => ({ ...prev, [key]: val }));
+		let val = newValue !== undefined ? newValue : e?.target?.value ?? "";
+		if (key === "ano" || key === "limit") {
+			const n = parseInt(String(val), 10);
+			val = Number.isFinite(n) ? n : CONTRATOS_URL_DEFAULTS[key];
+		}
+		setFilters({ [key]: val });
 	};
 
 	const buildPayload = () => {
@@ -349,7 +350,7 @@ export default function ContratosPage() {
 		return payload;
 	};
 
-	const handleSearch = async () => {
+	const handleSearch = useCallback(async () => {
 		setSearching(true);
 		setError(null);
 		setSelectedNode(null);
@@ -360,6 +361,7 @@ export default function ContratosPage() {
 		try {
 			const data = await contractSearch(payload);
 			setTableResult(data);
+			setSearchMeta(data?._meta || null);
 		} catch (err) {
 			setError(err?.message || "Error al realizar la búsqueda");
 		} finally {
@@ -371,7 +373,15 @@ export default function ContratosPage() {
 			.then((gData) => setGraphData(gData?.graph || { nodes: [], links: [] }))
 			.catch(() => {})
 			.finally(() => setGraphLoading(false));
-	};
+	}, [filters]);
+
+	useEffect(() => {
+		if (autoSearchDone.current) return;
+		const has = Boolean(filters.documento?.trim() || filters.fuerza || filters.entidad?.trim());
+		if (!has) return;
+		autoSearchDone.current = true;
+		handleSearch();
+	}, [filters.documento, filters.fuerza, filters.entidad, handleSearch]);
 
 	const rawSummary = tableResult?.summary?.resultSet?.[0] || null;
 	const summary = rawSummary || null;
@@ -385,6 +395,12 @@ export default function ContratosPage() {
 					Consulta contratos por filtros y visualiza relaciones en grafo &mdash; Portal Helios
 				</Typography>
 			</Stack>
+
+			{searchMeta && (
+				<Box>
+					<DataSourceBadge meta={searchMeta} compact={!expertMode} />
+				</Box>
+			)}
 
 			{/* ─── Filtros ─────────────────────────────────────────── */}
 			<Card>
@@ -400,7 +416,7 @@ export default function ContratosPage() {
 								<Select
 									value={filters.fuerza}
 									label="Fuerza"
-									onChange={(e) => setFilters((prev) => ({ ...prev, fuerza: e.target.value }))}
+									onChange={updateFilter("fuerza")}
 								>
 									<MenuItem value="">
 										<em>Todas</em>
@@ -426,7 +442,7 @@ export default function ContratosPage() {
 								<Select
 									value={filters.ano}
 									label="Año"
-									onChange={(e) => setFilters((prev) => ({ ...prev, ano: e.target.value }))}
+									onChange={updateFilter("ano")}
 								>
 									{(anios.length ? anios : [2025]).map((a) => (
 										<MenuItem key={a} value={a}>
@@ -521,7 +537,7 @@ export default function ContratosPage() {
 								size="small"
 								label="Documento CC / NIT"
 								value={filters.documento}
-								onChange={(e) => setFilters((prev) => ({ ...prev, documento: e.target.value }))}
+								onChange={updateFilter("documento")}
 							/>
 						</Grid>
 
@@ -531,7 +547,7 @@ export default function ContratosPage() {
 							</Typography>
 							<Slider
 								value={filters.limit}
-								onChange={(_, val) => setFilters((prev) => ({ ...prev, limit: val }))}
+								onChange={(_, val) => updateFilter("limit")(null, val)}
 								min={1}
 								max={100}
 								valueLabelDisplay="auto"

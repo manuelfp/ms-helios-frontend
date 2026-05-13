@@ -3,6 +3,7 @@ import { useState } from "react";
 import AppBar from "@mui/material/AppBar";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
@@ -21,11 +22,14 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
-import { Iconify, Logo } from "@/components/core";
+import { DataGlossaryDrawer, Iconify, Logo } from "@/components/core";
+import { useExpertMode } from "@/contexts/expert-mode-context";
 import { usePrivacy } from "@/hooks/use-privacy";
 import { paths } from "@/paths";
 import { usePathname } from "@/routes/hooks/use-pathname";
 import { useRouter } from "@/routes/hooks/use-router";
+
+import glosarioMarkdown from "@/content/glosario-datos.md?raw";
 
 const DRAWER_WIDTH = 260;
 const DRAWER_WIDTH_COLLAPSED = 77;
@@ -133,11 +137,13 @@ function SidebarContent({ collapsed, pathname, onNavigate, onLogout }) {
 export function DashboardLayout({ children }) {
 	const { user, logout } = useAuthContext();
 	const { obfuscate, setObfuscate } = usePrivacy();
+	const { expertMode, setExpertMode } = useExpertMode();
 	const router = useRouter();
 	const pathname = usePathname();
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [collapsed, setCollapsed] = useState(false);
 	const [anchorEl, setAnchorEl] = useState(null);
+	const [glossaryOpen, setGlossaryOpen] = useState(false);
 
 	const handleLogout = async () => {
 		try {
@@ -275,6 +281,28 @@ export function DashboardLayout({ children }) {
 							sx={{ ml: 0 }}
 						/>
 
+						<FormControlLabel
+							control={
+								<Switch checked={expertMode} onChange={(e) => setExpertMode(e.target.checked)} size="small" color="primary" />
+							}
+							label={
+								<Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
+									Modo experto
+								</Typography>
+							}
+							sx={{ ml: { xs: 0, sm: 1 } }}
+						/>
+
+						<Button variant="outlined" size="small" onClick={() => setGlossaryOpen(true)} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
+							Acerca de los datos
+						</Button>
+
+						<Tooltip title="Acerca de los datos">
+							<IconButton size="small" onClick={() => setGlossaryOpen(true)} sx={{ display: { xs: "inline-flex", sm: "none" } }} aria-label="Acerca de los datos">
+								<Iconify icon="solar:info-circle-bold-duotone" width={22} />
+							</IconButton>
+						</Tooltip>
+
 						<Box sx={{ flex: 1 }} />
 
 						<Stack direction="row" alignItems="center" spacing={1}>
@@ -311,7 +339,26 @@ export function DashboardLayout({ children }) {
 				<Box component="main" sx={{ flex: 1, p: { xs: 2, md: 3 }, overflow: "auto", minHeight: 0, position: "relative" }}>
 					{children}
 				</Box>
+
+				<Box
+					component="footer"
+					sx={{
+						flexShrink: 0,
+						px: { xs: 2, md: 3 },
+						py: 1,
+						borderTop: "1px dashed",
+						borderColor: "divider",
+						bgcolor: "grey.50",
+					}}
+				>
+					<Typography variant="caption" color="text.secondary" display="block">
+						<strong>Metodología:</strong> Helios cuenta filas según las vistas SQL indicadas en cada pantalla; los totales pueden diferir de conteos únicos en SECOP II / datos.gov.co. Documentación del repositorio:{" "}
+						<code>docs/metodologia-conteos.md</code>. Use <strong>Acerca de los datos</strong> para el glosario en la app.
+					</Typography>
+				</Box>
 			</Box>
+
+			<DataGlossaryDrawer open={glossaryOpen} onClose={() => setGlossaryOpen(false)} markdown={glosarioMarkdown} />
 		</Box>
 	);
 }
