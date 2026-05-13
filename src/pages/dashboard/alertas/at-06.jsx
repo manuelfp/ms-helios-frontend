@@ -10,7 +10,7 @@ import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertAnnuityExceeded } from "@/services/helios-api";
 import { useAlertFilters } from "@/hooks/useAlertFilters";
-import { paths } from "@/paths";
+import { isValidNitOrDoc, paths } from "@/paths";
 
 const COLUMNS = [
 	{ key: "id_contrato", label: "ID Contrato" },
@@ -18,7 +18,14 @@ const COLUMNS = [
 	{ key: "anio_inicio", label: "Año inicio", align: "right", format: "number" },
 	{ key: "anio_fin", label: "Año fin", align: "right", format: "number" },
 	{ key: "cruza_anualidad", label: "Cruza vigencia" },
-	{ key: "nombre_entidad", label: "Entidad", maxWidth: 260 },
+	{
+		key: "nombre_entidad",
+		label: "Entidad",
+		maxWidth: 260,
+		linkTo: (row) => (isValidNitOrDoc(row.nit_entidad) ? paths.dashboard.investigarDoc(row.nit_entidad) : null),
+		linkTitle: "Investigar a la entidad en Helios",
+		lookupBy: (row) => (row.nombre_entidad ? { nombre: row.nombre_entidad, tipo: "entidad" } : null),
+	},
 	{ key: "valor_del_contrato", label: "Valor", align: "right", format: "currency" },
 ];
 

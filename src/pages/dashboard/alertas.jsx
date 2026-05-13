@@ -30,7 +30,7 @@ import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { ALERT_TYPE_CARDS } from "@/services/mock-alerts";
 import { getAlertsSummary, getAlertRiskScore } from "@/services/helios-api";
 import { useAlertFilters } from "@/hooks/useAlertFilters";
-import { paths } from "@/paths";
+import { isValidNitOrDoc, paths } from "@/paths";
 import { fCurrency, fNumber } from "@/utils/format";
 
 const ALERT_PATHS = {
@@ -253,24 +253,39 @@ export default function AlertasDashboardPage() {
 							<Typography variant="subtitle1" fontWeight={700} gutterBottom>
 								Índice de riesgo — ranking
 							</Typography>
+							<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+								Haz clic en un nombre para abrir la vista <strong>Investigación</strong> con el NIT precargado.
+							</Typography>
 							{risk?.ranking_proveedores?.length > 0 && (
 							<Stack spacing={1}>
-								{risk.ranking_proveedores.slice(0, 5).map((p, i) => (
-									<Stack key={i} direction="row" justifyContent="space-between" alignItems="center">
-										<Button
-											component={RouterLink}
-											to={paths.dashboard.perfilProveedor(p.codigo_proveedor)}
-											size="small"
-											variant="text"
-											sx={{ justifyContent: "flex-start", textTransform: "none" }}
-										>
-											{p.proveedor_adjudicado || p.codigo_proveedor}
-										</Button>
-										<Typography variant="body2">
-											Score {p.score} · {p.nivel}
-										</Typography>
-									</Stack>
-								))}
+								{risk.ranking_proveedores.slice(0, 5).map((p, i) => {
+									const docRaw = p.codigo_proveedor;
+									const hasDoc = isValidNitOrDoc(docRaw);
+									const label = p.proveedor_adjudicado || (hasDoc ? String(docRaw) : "Proveedor sin identificación");
+									return (
+										<Stack key={i} direction="row" justifyContent="space-between" alignItems="center">
+											{hasDoc ? (
+												<Button
+													component={RouterLink}
+													to={paths.dashboard.investigarDoc(String(docRaw))}
+													size="small"
+													variant="text"
+													startIcon={<Iconify icon="solar:magnifer-bold-duotone" width={16} />}
+													sx={{ justifyContent: "flex-start", textTransform: "none" }}
+												>
+													{label}
+												</Button>
+											) : (
+												<Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
+													{label}
+												</Typography>
+											)}
+											<Typography variant="body2">
+												Score {p.score} · {p.nivel}
+											</Typography>
+										</Stack>
+									);
+								})}
 							</Stack>
 							)}
 							{risk?.ranking_entidades?.length > 0 && (
@@ -279,18 +294,27 @@ export default function AlertasDashboardPage() {
 										Entidades destacadas
 									</Typography>
 									<Stack spacing={0.5}>
-										{risk.ranking_entidades.slice(0, 4).map((e, j) => (
-											<Button
-												key={j}
-												component={RouterLink}
-												to={paths.dashboard.perfilEntidad(String(e.nit_entidad ?? e.nit))}
-												size="small"
-												variant="text"
-												sx={{ justifyContent: "flex-start", textTransform: "none" }}
-											>
-												{e.nombre_entidad} — score {e.score}
-											</Button>
-										))}
+										{risk.ranking_entidades.slice(0, 4).map((e, j) => {
+											const nitRaw = e.nit_entidad ?? e.nit;
+											const hasNit = isValidNitOrDoc(nitRaw);
+											return hasNit ? (
+												<Button
+													key={j}
+													component={RouterLink}
+													to={paths.dashboard.investigarDoc(String(nitRaw))}
+													size="small"
+													variant="text"
+													startIcon={<Iconify icon="solar:magnifer-bold-duotone" width={16} />}
+													sx={{ justifyContent: "flex-start", textTransform: "none" }}
+												>
+													{e.nombre_entidad} — score {e.score}
+												</Button>
+											) : (
+												<Typography key={j} variant="body2" color="text.disabled" sx={{ fontStyle: "italic", pl: 1 }}>
+													{e.nombre_entidad} — score {e.score} (sin NIT)
+												</Typography>
+											);
+										})}
 									</Stack>
 								</>
 							)}

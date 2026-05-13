@@ -438,7 +438,7 @@ export default function InvestigacionPage() {
 						/>
 					)}
 
-					{hasAnyResult && <RoleBreakdownSection results={results} />}
+					{hasAnyResult && <RoleBreakdownSection results={results} reconciliation={reconciliation} />}
 
 					{/* Statistics */}
 					{analysis.estadisticas && <StatisticsSection stats={analysis.estadisticas} expertMode={expertMode} />}
@@ -578,7 +578,7 @@ function FullGraphLoader({ documento, userEmail }) {
 		);
 	}
 
-	return <GraphViewer data={graph} height={550} />;
+	return <GraphViewer data={graph} height={550} showNodeDetailDialog />;
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────
@@ -634,23 +634,39 @@ function ProfileSection({ perfil, obfuscate, visibleChars, visibleLastChars, mas
 	);
 }
 
-function RoleBreakdownSection({ results }) {
+function RoleBreakdownSection({ results, reconciliation }) {
 	const roleRows = [
-		{ key: "contracts_as_provider", label: "Como proveedor (documento_proveedor)" },
-		{ key: "contracts_as_entity", label: "Como entidad contratante (nit_entidad)" },
-		{ key: "contracts_as_representative", label: "Como representante legal" },
-		{ key: "contracts_as_ordering_authority", label: "Como ordenador del gasto" },
+		{ key: "contracts_as_provider", label: "Como proveedor (documento_proveedor)", reconKey: "as_provider" },
+		{ key: "contracts_as_entity", label: "Como entidad contratante (nit_entidad)", reconKey: "as_entity" },
+		{ key: "contracts_as_representative", label: "Como representante legal", reconKey: null },
+		{ key: "contracts_as_ordering_authority", label: "Como ordenador del gasto", reconKey: null },
 	];
 
+	const helios = reconciliation?.helios;
+	let usingRecon = false;
 	let sum = 0;
 	const rows = [];
-	for (const { key, label } of roleRows) {
-		const sec = results[key];
-		if (!sec?.found || !sec.data?.[0]) continue;
-		const n = Number(sec.data[0].total_contratos ?? 0);
-		if (!Number.isFinite(n) || n <= 0) continue;
+	for (const { key, label, reconKey } of roleRows) {
+		let n = null;
+		let source = "sse";
+		if (reconKey && helios?.[reconKey]?.total_contratos != null) {
+			const v = Number(helios[reconKey].total_contratos);
+			if (Number.isFinite(v)) {
+				n = v;
+				source = "recon";
+				usingRecon = true;
+			}
+		}
+		if (n == null) {
+			const sec = results[key];
+			if (!sec?.found || !sec.data?.[0]) continue;
+			const v = Number(sec.data[0].total_contratos ?? 0);
+			if (!Number.isFinite(v) || v <= 0) continue;
+			n = v;
+		}
+		if (n <= 0) continue;
 		sum += n;
-		rows.push({ key, label, n });
+		rows.push({ key, label, n, source });
 	}
 
 	if (rows.length === 0) return null;
@@ -663,8 +679,8 @@ function RoleBreakdownSection({ results }) {
 					<Typography variant="subtitle1">Desglose por rol (SQL)</Typography>
 				</Stack>
 				<Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-					Estos totales provienen de las consultas paralelas a <code>vw_contratos_electronicos</code>. La suma puede
-					superar contratos únicos si el mismo NIT actúa en más de un rol; no deduplica <code>id_contrato</code> entre roles.
+					Estos totales provienen de <code>vw_contratos_electronicos</code>. La suma puede superar contratos únicos si el mismo NIT actúa en más de un rol; no deduplica <code>id_contrato</code> entre roles.
+					{usingRecon && " Los conteos de proveedor y entidad se toman del endpoint de conciliación para mantener una única fuente de verdad."}
 				</Typography>
 				<Table size="small">
 					<TableHead>

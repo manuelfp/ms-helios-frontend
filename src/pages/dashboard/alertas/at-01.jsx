@@ -11,13 +11,20 @@ import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertSingleBidder } from "@/services/helios-api";
 import { useAlertFilters } from "@/hooks/useAlertFilters";
-import { paths } from "@/paths";
+import { isValidNitOrDoc, paths } from "@/paths";
 
 const COLUMNS = [
 	{ key: "id_contrato", label: "ID Contrato", maxWidth: 180 },
 	{ key: "modalidad_de_contratacion", label: "Modalidad", maxWidth: 220 },
 	{ key: "proveedores_unicos_con", label: "Oferentes", align: "right", format: "number" },
-	{ key: "nombre_entidad", label: "Entidad", maxWidth: 260 },
+	{
+		key: "nombre_entidad",
+		label: "Entidad",
+		maxWidth: 260,
+		linkTo: (row) => (isValidNitOrDoc(row.nit_entidad) ? paths.dashboard.investigarDoc(row.nit_entidad) : null),
+		linkTitle: "Investigar a la entidad en Helios",
+		lookupBy: (row) => (row.nombre_entidad ? { nombre: row.nombre_entidad, tipo: "entidad" } : null),
+	},
 	{ key: "fuerza", label: "Fuerza" },
 	{ key: "valor_del_contrato", label: "Valor", align: "right", format: "currency" },
 ];

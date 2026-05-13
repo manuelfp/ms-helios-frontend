@@ -15,11 +15,26 @@ import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertHeterogeneousSupplier } from "@/services/helios-api";
 import { useAlertFilters } from "@/hooks/useAlertFilters";
-import { paths } from "@/paths";
+import { isValidNitOrDoc, paths } from "@/paths";
 
 const COLUMNS = [
-	{ key: "codigo_proveedor", label: "Cód. proveedor" },
-	{ key: "proveedor_adjudicado", label: "Proveedor", maxWidth: 280 },
+	{
+		key: "codigo_proveedor",
+		label: "Cód. proveedor",
+		linkTo: (row) =>
+			isValidNitOrDoc(row.codigo_proveedor) ? paths.dashboard.investigarDoc(row.codigo_proveedor) : null,
+		linkTitle: "Investigar al proveedor en Helios",
+	},
+	{
+		key: "proveedor_adjudicado",
+		label: "Proveedor",
+		maxWidth: 280,
+		linkTo: (row) =>
+			isValidNitOrDoc(row.codigo_proveedor) ? paths.dashboard.investigarDoc(row.codigo_proveedor) : null,
+		linkTitle: "Investigar al proveedor en Helios",
+		lookupBy: (row) =>
+			row.proveedor_adjudicado ? { nombre: row.proveedor_adjudicado, tipo: "proveedor" } : null,
+	},
 	{ key: "categorias_distintas", label: "Categorías UNSPSC", align: "right", format: "number" },
 	{ key: "umbral", label: "Umbral IQR", align: "right", format: "number" },
 	{ key: "variedad_sobre_umbral", label: "Sobre umbral" },

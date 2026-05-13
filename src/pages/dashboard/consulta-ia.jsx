@@ -35,7 +35,7 @@ import { SQLViewerModal } from "@/components/core/sql-viewer-modal";
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
 import { useExpertMode } from "@/contexts/expert-mode-context";
 import { naturalQuery } from "@/services/helios-api";
-import { isPlaceholderName } from "@/utils/placeholder-names";
+import { isDocumentoColumn, isPlaceholderDocumento, isPlaceholderName, placeholderReason } from "@/utils/placeholder-names";
 import { fCurrency, fNumber } from "@/utils/format";
 
 function neo4jInt(v) {
@@ -570,11 +570,35 @@ function RowDetailDialog({ row, open, onClose }) {
 	);
 }
 
+function cellPlaceholder(col, value) {
+	if (isDocumentoColumn(col) && isPlaceholderDocumento(value)) {
+		return placeholderReason(value) || "Sin identificación en SECOP";
+	}
+	if (isPlaceholderName(value)) {
+		return placeholderReason(value) || `Etiqueta genérica reportada por SECOP: "${value}"`;
+	}
+	return null;
+}
+
 function rowLooksPlaceholder(row) {
-	for (const v of Object.values(row)) {
-		if (isPlaceholderName(v)) return true;
+	for (const [col, v] of Object.entries(row)) {
+		if (cellPlaceholder(col, v)) return true;
 	}
 	return false;
+}
+
+function PlaceholderCellValue({ col, value }) {
+	const reason = cellPlaceholder(col, value);
+	const display = formatCell(col, value);
+	if (!reason) return <>{display}</>;
+	return (
+		<Tooltip title={reason} arrow>
+			<Stack direction="row" spacing={0.5} alignItems="center" component="span" sx={{ color: "warning.main", fontStyle: "italic" }}>
+				<Iconify icon="solar:info-circle-bold-duotone" width={14} />
+				<span>{display}</span>
+			</Stack>
+		</Tooltip>
+	);
 }
 
 function ResultsTable({ data }) {
@@ -603,7 +627,7 @@ function ResultsTable({ data }) {
 							<TableRow
 								key={idx}
 								hover
-								sx={rowLooksPlaceholder(row) ? { bgcolor: "action.selected", opacity: 0.92 } : undefined}
+								sx={rowLooksPlaceholder(row) ? { bgcolor: "action.hover" } : undefined}
 							>
 								<TableCell sx={{ px: 0.5 }}>
 									<Tooltip title="Ver detalle" arrow>
@@ -614,7 +638,7 @@ function ResultsTable({ data }) {
 								</TableCell>
 								{columns.map((col) => (
 									<TableCell key={col} sx={{ whiteSpace: "nowrap", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}>
-										{formatCell(col, row[col])}
+										<PlaceholderCellValue col={col} value={row[col]} />
 									</TableCell>
 								))}
 							</TableRow>

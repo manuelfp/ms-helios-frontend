@@ -22,7 +22,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 
 import { useAuthContext } from "@/auth/hooks/use-auth-context";
-import { DataGlossaryDrawer, Iconify, Logo } from "@/components/core";
+import { DataGlossaryDrawer, Iconify, Logo, RouterLink } from "@/components/core";
 import { useExpertMode } from "@/contexts/expert-mode-context";
 import { usePrivacy } from "@/hooks/use-privacy";
 import { paths } from "@/paths";
@@ -352,8 +352,14 @@ export function DashboardLayout({ children }) {
 					}}
 				>
 					<Typography variant="caption" color="text.secondary" display="block">
-						<strong>Metodología:</strong> Helios cuenta filas según las vistas SQL indicadas en cada pantalla; los totales pueden diferir de conteos únicos en SECOP II / datos.gov.co. Documentación del repositorio:{" "}
-						<code>docs/metodologia-conteos.md</code>. Use <strong>Acerca de los datos</strong> para el glosario en la app.
+						<strong>Metodología:</strong> Helios cuenta filas según las vistas SQL indicadas en cada pantalla; los totales pueden diferir de conteos únicos en SECOP II / datos.gov.co. Consulta el detalle en{" "}
+						<RouterLink
+							href={paths.dashboard.metodologia}
+							style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}
+						>
+							Metodología de conteos
+						</RouterLink>
+						. Use <strong>Acerca de los datos</strong> para el glosario en la app.
 					</Typography>
 				</Box>
 			</Box>

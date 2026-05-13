@@ -10,7 +10,7 @@ import { AlertFilterBar } from "@/components/alertas/AlertFilterBar";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertShortAward } from "@/services/helios-api";
 import { useAlertFilters } from "@/hooks/useAlertFilters";
-import { paths } from "@/paths";
+import { isValidNitOrDoc, paths } from "@/paths";
 
 const COLUMNS = [
 	{ key: "id_contrato", label: "ID Contrato" },
@@ -19,7 +19,14 @@ const COLUMNS = [
 	{ key: "umbral_modalidad", label: "Umbral (días)", align: "right", format: "number" },
 	{ key: "fecha_de_apertura_efectiva", label: "Apertura" },
 	{ key: "fecha_adjudicacion", label: "Adjudicación" },
-	{ key: "nombre_entidad", label: "Entidad", maxWidth: 240 },
+	{
+		key: "nombre_entidad",
+		label: "Entidad",
+		maxWidth: 240,
+		linkTo: (row) => (isValidNitOrDoc(row.nit_entidad) ? paths.dashboard.investigarDoc(row.nit_entidad) : null),
+		linkTitle: "Investigar a la entidad en Helios",
+		lookupBy: (row) => (row.nombre_entidad ? { nombre: row.nombre_entidad, tipo: "entidad" } : null),
+	},
 ];
 
 export default function AlertasAt02Page() {

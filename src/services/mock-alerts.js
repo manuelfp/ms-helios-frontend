@@ -134,19 +134,19 @@ export function getMockAlertsSummary(params = {}) {
 }
 
 const ROWS_AT01 = [
-	{ id_contrato: "CO1.PCCNTR.1284", modalidad_de_contratacion: "Contratación abierta", proveedores_unicos_con: 1, nombre_entidad: "Comando Ejército Nacional", fuerza: "EJC", valor_del_contrato: 450000000, anio: YEAR },
-	{ id_contrato: "CO1.PCCNTR.2291", modalidad_de_contratacion: "Selección abreviada", proveedores_unicos_con: 1, nombre_entidad: "Fuerza Aérea Colombiana", fuerza: "FAC", valor_del_contrato: 1200000000, anio: YEAR },
-	{ id_contrato: "CO1.PCCNTR.3310", modalidad_de_contratacion: "Mínima cuantía", proveedores_unicos_con: 1, nombre_entidad: "Armada Nacional", fuerza: "ARC", valor_del_contrato: 89000000, anio: YEAR },
+	{ id_contrato: "CO1.PCCNTR.1284", modalidad_de_contratacion: "Contratación abierta", proveedores_unicos_con: 1, nit_entidad: "899999001", nombre_entidad: "Comando Ejército Nacional", fuerza: "EJC", valor_del_contrato: 450000000, anio: YEAR },
+	{ id_contrato: "CO1.PCCNTR.2291", modalidad_de_contratacion: "Selección abreviada", proveedores_unicos_con: 1, nit_entidad: "899999053", nombre_entidad: "Fuerza Aérea Colombiana", fuerza: "FAC", valor_del_contrato: 1200000000, anio: YEAR },
+	{ id_contrato: "CO1.PCCNTR.3310", modalidad_de_contratacion: "Mínima cuantía", proveedores_unicos_con: 1, nit_entidad: "899999081", nombre_entidad: "Armada Nacional", fuerza: "ARC", valor_del_contrato: 89000000, anio: YEAR },
 ];
 
 const ROWS_AT02 = [
-	{ id_contrato: "CO1.PCCNTR.4412", modalidad_de_contratacion: "Contratación abierta", dias_adjudicacion: 2, umbral_modalidad: 8, fecha_adjudicacion: "2025-03-10", fecha_de_apertura_efectiva: "2025-03-08", nombre_entidad: "Comando Ejército Nacional", anio: YEAR },
-	{ id_contrato: "CO1.PCCNTR.5520", modalidad_de_contratacion: "Selección abreviada", dias_adjudicacion: 1, umbral_modalidad: 5, fecha_adjudicacion: "2025-04-02", fecha_de_apertura_efectiva: "2025-04-01", nombre_entidad: "FAC", anio: YEAR },
+	{ id_contrato: "CO1.PCCNTR.4412", modalidad_de_contratacion: "Contratación abierta", dias_adjudicacion: 2, umbral_modalidad: 8, fecha_adjudicacion: "2025-03-10", fecha_de_apertura_efectiva: "2025-03-08", nit_entidad: "899999001", nombre_entidad: "Comando Ejército Nacional", anio: YEAR },
+	{ id_contrato: "CO1.PCCNTR.5520", modalidad_de_contratacion: "Selección abreviada", dias_adjudicacion: 1, umbral_modalidad: 5, fecha_adjudicacion: "2025-04-02", fecha_de_apertura_efectiva: "2025-04-01", nit_entidad: "899999053", nombre_entidad: "FAC", anio: YEAR },
 ];
 
 const ROWS_AT03 = [
-	{ codigo_proveedor: "900123456", proveedor_adjudicado: "CONSTRUCTORA DEMO S.A.S.", nombre_entidad: "Comando Ejército Nacional", participacion_pct: 42.5, valor_total: 5600000000, alertas_activas: 3, anio: YEAR },
-	{ codigo_proveedor: "800987654", proveedor_adjudicado: "SUMINISTROS DEL LLANO LTDA", nombre_entidad: "Fuerza Aérea Colombiana", participacion_pct: 38.2, valor_total: 2100000000, alertas_activas: 2, anio: YEAR },
+	{ codigo_proveedor: "900123456", proveedor_adjudicado: "CONSTRUCTORA DEMO S.A.S.", nit_entidad: "899999001", nombre_entidad: "Comando Ejército Nacional", participacion_pct: 42.5, valor_total: 5600000000, alertas_activas: 3, anio: YEAR },
+	{ codigo_proveedor: "800987654", proveedor_adjudicado: "SUMINISTROS DEL LLANO LTDA", nit_entidad: "899999053", nombre_entidad: "Fuerza Aérea Colombiana", participacion_pct: 38.2, valor_total: 2100000000, alertas_activas: 2, anio: YEAR },
 ];
 
 const ROWS_AT04 = [
@@ -160,8 +160,8 @@ const ROWS_AT05 = [
 ];
 
 const ROWS_AT06 = [
-	{ id_contrato: "CO1.PCCNTR.6611", dias_adicionados: 120, anio_inicio: 2024, anio_fin: 2026, cruza_anualidad: true, nombre_entidad: "Comando Ejército Nacional", valor_del_contrato: 8900000000, anio: YEAR },
-	{ id_contrato: "CO1.PCCNTR.7722", dias_adicionados: 45, anio_inicio: 2025, anio_fin: 2026, cruza_anualidad: true, nombre_entidad: "FAC", valor_del_contrato: 1200000000, anio: YEAR },
+	{ id_contrato: "CO1.PCCNTR.6611", dias_adicionados: 120, anio_inicio: 2024, anio_fin: 2026, cruza_anualidad: true, nit_entidad: "899999001", nombre_entidad: "Comando Ejército Nacional", valor_del_contrato: 8900000000, anio: YEAR },
+	{ id_contrato: "CO1.PCCNTR.7722", dias_adicionados: 45, anio_inicio: 2025, anio_fin: 2026, cruza_anualidad: true, nit_entidad: "899999053", nombre_entidad: "FAC", valor_del_contrato: 1200000000, anio: YEAR },
 ];
 
 const ROWS_AT07 = [

@@ -19,6 +19,7 @@ const AlertasAt04Page = lazy(() => import("@/pages/dashboard/alertas/at-04"));
 const AlertasAt05Page = lazy(() => import("@/pages/dashboard/alertas/at-05"));
 const AlertasAt06Page = lazy(() => import("@/pages/dashboard/alertas/at-06"));
 const AlertasAt07Page = lazy(() => import("@/pages/dashboard/alertas/at-07"));
+const MetodologiaPage = lazy(() => import("@/pages/dashboard/metodologia"));
 const PerfilProveedorPage = lazy(() => import("@/pages/dashboard/perfil-proveedor"));
 const PerfilEntidadPage = lazy(() => import("@/pages/dashboard/perfil-entidad"));
 
@@ -48,6 +49,7 @@ export const dashboardRoutes = [
 			{ path: "alertas/at-05", element: <AlertasAt05Page /> },
 			{ path: "alertas/at-06", element: <AlertasAt06Page /> },
 			{ path: "alertas/at-07", element: <AlertasAt07Page /> },
+			{ path: "metodologia", element: <MetodologiaPage /> },
 			{ path: "perfil-proveedor/:documento", element: <PerfilProveedorPage /> },
 			{ path: "perfil-entidad/:nit", element: <PerfilEntidadPage /> },
 		],

@@ -131,22 +131,33 @@ export default function PerfilEntidadPage() {
 											</TableRow>
 										</TableHead>
 										<TableBody>
-											{(data.proveedores_con_alertas || []).map((p, i) => (
-												<TableRow key={i}>
-													<TableCell>
-														<Button
-															component={RouterLink}
-															to={paths.dashboard.perfilProveedor(p.codigo_proveedor)}
-															size="small"
-															variant="text"
-															sx={{ textTransform: "none", p: 0, minWidth: 0 }}
-														>
-															{p.proveedor_adjudicado || p.codigo_proveedor}
-														</Button>
-													</TableCell>
-													<TableCell align="right">{fNumber(p.participacion_pct)}%</TableCell>
-												</TableRow>
-											))}
+											{(data.proveedores_con_alertas || []).map((p, i) => {
+												const docRaw = p.codigo_proveedor;
+												const hasDoc = docRaw != null && String(docRaw).trim() !== "" && !/^0+$/.test(String(docRaw).trim());
+												const label = p.proveedor_adjudicado || (hasDoc ? String(docRaw) : "Sin identificación");
+												return (
+													<TableRow key={i}>
+														<TableCell>
+															{hasDoc ? (
+																<Button
+																	component={RouterLink}
+																	to={paths.dashboard.perfilProveedor(String(docRaw))}
+																	size="small"
+																	variant="text"
+																	sx={{ textTransform: "none", p: 0, minWidth: 0 }}
+																>
+																	{label}
+																</Button>
+															) : (
+																<Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
+																	{label}
+																</Typography>
+															)}
+														</TableCell>
+														<TableCell align="right">{fNumber(p.participacion_pct)}%</TableCell>
+													</TableRow>
+												);
+											})}
 										</TableBody>
 									</Table>
 								</CardContent>

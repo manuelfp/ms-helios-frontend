@@ -329,8 +329,15 @@ export default function ContratosPage() {
 		});
 	}, []);
 
-	const updateFilter = (key) => (e, newValue) => {
-		let val = newValue !== undefined ? newValue : e?.target?.value ?? "";
+	const updateFilter = (key) => (event, newValue) => {
+		let val;
+		const reactElement =
+			newValue != null && typeof newValue === "object" && "$$typeof" in newValue;
+		if (newValue === undefined || reactElement) {
+			val = event?.target?.value ?? "";
+		} else {
+			val = newValue ?? "";
+		}
 		if (key === "ano" || key === "limit") {
 			const n = parseInt(String(val), 10);
 			val = Number.isFinite(n) ? n : CONTRATOS_URL_DEFAULTS[key];
@@ -457,9 +464,15 @@ export default function ContratosPage() {
 							<Autocomplete
 								freeSolo
 								size="small"
+								value={filters.entidad}
 								options={entidadCatalog.options}
 								loading={entidadCatalog.loading}
-								onInputChange={(_, value) => entidadCatalog.search(value)}
+								onInputChange={(_, value, reason) => {
+									entidadCatalog.search(value);
+									if (reason === "input" || reason === "clear") {
+										setFilters({ entidad: value || "" });
+									}
+								}}
 								onChange={updateFilter("entidad")}
 								renderInput={(params) => (
 									<TextField
@@ -483,9 +496,15 @@ export default function ContratosPage() {
 							<Autocomplete
 								freeSolo
 								size="small"
+								value={filters.ciudad}
 								options={ciudadCatalog.options}
 								loading={ciudadCatalog.loading}
-								onInputChange={(_, value) => ciudadCatalog.search(value)}
+								onInputChange={(_, value, reason) => {
+									ciudadCatalog.search(value);
+									if (reason === "input" || reason === "clear") {
+										setFilters({ ciudad: value || "" });
+									}
+								}}
 								onChange={updateFilter("ciudad")}
 								renderInput={(params) => (
 									<TextField
@@ -509,9 +528,15 @@ export default function ContratosPage() {
 							<Autocomplete
 								freeSolo
 								size="small"
+								value={filters.proveedor}
 								options={proveedorCatalog.options}
 								loading={proveedorCatalog.loading}
-								onInputChange={(_, value) => proveedorCatalog.search(value)}
+								onInputChange={(_, value, reason) => {
+									proveedorCatalog.search(value);
+									if (reason === "input" || reason === "clear") {
+										setFilters({ proveedor: value || "" });
+									}
+								}}
 								onChange={updateFilter("proveedor")}
 								renderInput={(params) => (
 									<TextField

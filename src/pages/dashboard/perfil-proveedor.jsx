@@ -23,11 +23,13 @@ import { DataSourceBadge, Iconify } from "@/components/core";
 import { ReconciliationPanel } from "@/components/core/reconciliation-panel";
 import { getProviderAlertProfile, getReconciliation } from "@/services/helios-api";
 import { paths } from "@/paths";
+import { isPlaceholderDocumento } from "@/utils/placeholder-names";
 import { fCurrency, fNumber } from "@/utils/format";
 
 export default function PerfilProveedorPage() {
 	const { documento } = useParams();
-	const [loading, setLoading] = useState(true);
+	const documentoMissing = isPlaceholderDocumento(documento);
+	const [loading, setLoading] = useState(!documentoMissing);
 	const [data, setData] = useState(null);
 	const [error, setError] = useState(null);
 	const [reconLoading, setReconLoading] = useState(false);
@@ -35,7 +37,12 @@ export default function PerfilProveedorPage() {
 	const [reconError, setReconError] = useState(null);
 
 	useEffect(() => {
-		if (!documento) return;
+		if (documentoMissing) {
+			setLoading(false);
+			setData(null);
+			setError(null);
+			return;
+		}
 		let cancelled = false;
 		setLoading(true);
 		setError(null);
@@ -52,9 +59,10 @@ export default function PerfilProveedorPage() {
 		return () => {
 			cancelled = true;
 		};
-	}, [documento]);
+	}, [documento, documentoMissing]);
 
 	useEffect(() => {
+		if (documentoMissing) return;
 		const doc = data?.documento || documento;
 		if (!doc) return;
 		let cancelled = false;
@@ -73,10 +81,25 @@ export default function PerfilProveedorPage() {
 		return () => {
 			cancelled = true;
 		};
-	}, [data?.documento, documento]);
+	}, [data?.documento, documento, documentoMissing]);
 
 	const alertas = data?.alertas_por_tipo || {};
 	const entries = Object.entries(alertas);
+
+	if (documentoMissing) {
+		return (
+			<Stack spacing={3}>
+				<Button component={RouterLink} to={paths.dashboard.alertas} size="small" variant="text" startIcon={<Iconify icon="solar:arrow-left-bold-duotone" width={18} />}>
+					Volver a alertas
+				</Button>
+				<Alert severity="warning" variant="outlined">
+					<strong>No es posible mostrar este perfil:</strong> el contrato no tiene un documento o NIT válido en SECOP. Es habitual cuando el proveedor figura como
+					{" "}<code>NO DEFINIDO</code> o el campo viene con ceros en la fuente. Usa la búsqueda por nombre desde la sección de Contratos, o consulta los registros
+					completos en <a href="https://www.datos.gov.co" target="_blank" rel="noreferrer">datos.gov.co</a>.
+				</Alert>
+			</Stack>
+		);
+	}
 
 	return (
 		<Stack spacing={3}>

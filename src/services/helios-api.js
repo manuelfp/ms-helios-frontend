@@ -62,6 +62,22 @@ function buildURL(path, params) {
 // ─── Health ────────────────────────────────────────────────────────
 export const getStatus = () => axios.get("/status").then((r) => r.data);
 
+// ─── Lookup de NIT por nombre ─────────────────────────────────────
+/**
+ * Resuelve uno o varios NIT candidatos a partir del nombre de una empresa o
+ * entidad, cruzando con proveedores_unicos, vw_rues, Nits_defensa_vf y
+ * vw_contratos_electronicos. Útil para registros de SECOP que no traen
+ * documento del proveedor / entidad.
+ *
+ * @param {string} nombre
+ * @param {"proveedor"|"entidad"|"any"} [tipo="any"]
+ * @returns {Promise<{ matches: Array<{ nit: string, nombre_oficial: string, confianza: number, fuente: string, fuentes: string[] }>, normalized: string, sources_consulted: string[] }>}
+ */
+export const lookupNitByName = (nombre, tipo = "any") =>
+	axios
+		.get("/bigquery/lookup/nit-by-name", { params: { nombre, tipo } })
+		.then((r) => r.data);
+
 // ═══════════════════════════════════════════════════════════════════════
 //  BigQuery endpoints — data, stats, catalogs, investigation
 // ═══════════════════════════════════════════════════════════════════════

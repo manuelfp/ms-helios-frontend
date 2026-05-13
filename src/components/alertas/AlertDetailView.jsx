@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 
+import { Link as RouterLink } from "react-router-dom";
+
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -7,6 +9,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
+import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -20,11 +23,22 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 
 import { Iconify } from "@/components/core";
+import { LookupNitButton } from "@/components/alertas/LookupNitButton";
 import { MethodologyInfo } from "@/components/alertas/MethodologyInfo";
 import { fCurrency, fNumber } from "@/utils/format";
 
 /**
- * @typedef {{ key: string; label: string; align?: "left"|"right"|"center"; numeric?: boolean; format?: "currency"|"number"|"percent"; maxWidth?: number }} AlertColumn
+ * @typedef {{
+ *   key: string;
+ *   label: string;
+ *   align?: "left"|"right"|"center";
+ *   numeric?: boolean;
+ *   format?: "currency"|"number"|"percent";
+ *   maxWidth?: number;
+ *   linkTo?: (row: Record<string, unknown>) => string | null | undefined;
+ *   linkTitle?: string;
+ *   lookupBy?: (row: Record<string, unknown>) => { nombre: string, tipo?: "proveedor"|"entidad"|"any" } | null | undefined;
+ * }} AlertColumn
  */
 
 function formatCellValue(value, col) {
@@ -223,11 +237,54 @@ export function AlertDetailView({
 						{!loading &&
 							filtered.map((row, idx) => (
 								<TableRow key={row.id ?? idx} hover>
-									{columns.map((col) => (
-										<TableCell key={col.key} align={col.align || "left"} sx={{ maxWidth: col.maxWidth }}>
-											{formatCellValue(row[col.key], col)}
-										</TableCell>
-									))}
+									{columns.map((col) => {
+										const text = formatCellValue(row[col.key], col);
+										const href = typeof col.linkTo === "function" ? col.linkTo(row) : null;
+										const lookup = !href && typeof col.lookupBy === "function" ? col.lookupBy(row) : null;
+										const lookupNombre = lookup?.nombre && String(lookup.nombre).trim();
+										const showLookup = !href && lookupNombre && lookupNombre.length >= 4;
+										return (
+											<TableCell
+												key={col.key}
+												align={col.align || "left"}
+												sx={{ maxWidth: col.maxWidth }}
+											>
+												{href ? (
+													<Tooltip
+														title={col.linkTitle || "Investigar este registro en la vista Investigación"}
+														arrow
+													>
+														<Link
+															component={RouterLink}
+															to={href}
+															underline="hover"
+															sx={{
+																display: "inline-flex",
+																alignItems: "center",
+																gap: 0.5,
+																fontWeight: 600,
+																color: "primary.main",
+															}}
+														>
+															<span>{text}</span>
+															<Iconify
+																icon="solar:magnifer-bold-duotone"
+																width={14}
+																sx={{ color: "primary.main", opacity: 0.7 }}
+															/>
+														</Link>
+													</Tooltip>
+												) : showLookup ? (
+													<Stack direction="row" spacing={0.5} alignItems="center" sx={{ display: "inline-flex" }}>
+														<span>{text}</span>
+														<LookupNitButton nombre={lookupNombre} tipo={lookup.tipo || "any"} />
+													</Stack>
+												) : (
+													text
+												)}
+											</TableCell>
+										);
+									})}
 									<TableCell align="right">
 										<Tooltip title="Ver detalle">
 											<IconButton size="small" onClick={() => setDetail(row)}>

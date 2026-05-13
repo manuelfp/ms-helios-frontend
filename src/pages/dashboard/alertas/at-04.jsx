@@ -16,11 +16,26 @@ import { GraphViewer } from "@/components/core/graph-viewer";
 import { METHODOLOGY } from "@/services/mock-alerts";
 import { getAlertConcentrationCity } from "@/services/helios-api";
 import { useAlertFilters } from "@/hooks/useAlertFilters";
-import { paths } from "@/paths";
+import { isValidNitOrDoc, paths } from "@/paths";
 
 const COLUMNS = [
-	{ key: "codigo_proveedor", label: "Cód. proveedor" },
-	{ key: "proveedor_adjudicado", label: "Proveedor", maxWidth: 260 },
+	{
+		key: "codigo_proveedor",
+		label: "Cód. proveedor",
+		linkTo: (row) =>
+			isValidNitOrDoc(row.codigo_proveedor) ? paths.dashboard.investigarDoc(row.codigo_proveedor) : null,
+		linkTitle: "Investigar al proveedor en Helios",
+	},
+	{
+		key: "proveedor_adjudicado",
+		label: "Proveedor",
+		maxWidth: 260,
+		linkTo: (row) =>
+			isValidNitOrDoc(row.codigo_proveedor) ? paths.dashboard.investigarDoc(row.codigo_proveedor) : null,
+		linkTitle: "Investigar al proveedor en Helios",
+		lookupBy: (row) =>
+			row.proveedor_adjudicado ? { nombre: row.proveedor_adjudicado, tipo: "proveedor" } : null,
+	},
 	{ key: "ciudad", label: "Ciudad" },
 	{ key: "participacion_pct", label: "Participación %", align: "right", format: "percent" },
 	{ key: "valor_total", label: "Valor acumulado", align: "right", format: "currency" },

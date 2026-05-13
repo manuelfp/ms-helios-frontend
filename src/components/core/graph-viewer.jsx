@@ -6,6 +6,7 @@ import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
@@ -184,9 +185,9 @@ function formatPropValue(key, rawValue, obfuscateFlag, visibleChars, visibleLast
 	return str;
 }
 
-// ─── Node detail panel (used inside expanded mode) ──────────────────
-function NodeDetailPanel({ node, onClose }) {
-	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
+// ─── Node detail (shared content + panel + dialog variants) ────────
+
+function useNodePresentation(node) {
 	const group = getNodeGroup(node);
 	const meta = NODE_TYPE_META[group] || { label: group, icon: "solar:info-circle-bold-duotone" };
 	const color = NODE_COLORS[group] || "#919EAB";
@@ -194,7 +195,79 @@ function NodeDetailPanel({ node, onClose }) {
 	const entries = Object.entries(props).filter(
 		([k, v]) => v != null && v !== "" && !HIDDEN_PROPS.has(k),
 	);
+	return { group, meta, color, entries };
+}
 
+function NodeDetailHeader({ node, meta, color, onClose }) {
+	return (
+		<>
+			<Stack direction="row" alignItems="center" justifyContent="space-between">
+				<Stack direction="row" alignItems="center" spacing={1}>
+					<Iconify icon={meta.icon} width={24} sx={{ color }} />
+					<Typography variant="subtitle1" fontWeight={700}>{meta.label}</Typography>
+				</Stack>
+				<IconButton size="small" onClick={onClose} aria-label="Cerrar detalle del nodo">
+					<Iconify icon="solar:close-circle-bold-duotone" width={20} />
+				</IconButton>
+			</Stack>
+			{node.labels?.length > 0 && (
+				<Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: "wrap", gap: 0.5 }}>
+					{node.labels.map((lbl) => (
+						<Chip key={lbl} label={lbl} size="small" variant="outlined" sx={{ fontSize: 11 }} />
+					))}
+				</Stack>
+			)}
+		</>
+	);
+}
+
+function NodeDetailBody({ entries }) {
+	const { obfuscate, visibleChars, visibleLastChars, maskChar } = usePrivacy();
+	if (entries.length === 0) {
+		return (
+			<Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: "center" }}>
+				Sin propiedades disponibles
+			</Typography>
+		);
+	}
+	return (
+		<Stack spacing={1.5}>
+			{entries.map(([key, value]) => {
+				const formatted = formatPropValue(key, value, obfuscate, visibleChars, visibleLastChars, maskChar);
+				const isUrl = key.toLowerCase().includes("url") && typeof formatted === "string" && formatted.startsWith("HTTP");
+				return (
+					<Box key={key}>
+						<Typography variant="caption" color="text.disabled" sx={{ fontSize: 11 }}>
+							{PROPERTY_LABELS[key] || key.replace(/_/g, " ")}
+						</Typography>
+						{isUrl ? (
+							<Typography
+								variant="body2"
+								component="a"
+								href={formatted}
+								target="_blank"
+								rel="noopener noreferrer"
+								sx={{ display: "block", wordBreak: "break-all", color: "primary.main" }}
+							>
+								Ver en SECOP
+							</Typography>
+						) : (
+							<Typography
+								variant="body2"
+								sx={{ wordBreak: "break-word", fontWeight: key.toLowerCase().includes("valor") ? 600 : 400 }}
+							>
+								{formatted}
+							</Typography>
+						)}
+					</Box>
+				);
+			})}
+		</Stack>
+	);
+}
+
+function NodeDetailPanel({ node, onClose }) {
+	const { meta, color, entries } = useNodePresentation(node);
 	return (
 		<Card
 			sx={{
@@ -208,67 +281,42 @@ function NodeDetailPanel({ node, onClose }) {
 			}}
 		>
 			<CardContent sx={{ pb: 1 }}>
-				<Stack direction="row" alignItems="center" justifyContent="space-between">
-					<Stack direction="row" alignItems="center" spacing={1}>
-						<Iconify icon={meta.icon} width={24} sx={{ color }} />
-						<Typography variant="subtitle1" fontWeight={700}>{meta.label}</Typography>
-					</Stack>
-					<IconButton size="small" onClick={onClose}>
-						<Iconify icon="solar:close-circle-bold-duotone" width={20} />
-					</IconButton>
-				</Stack>
-				{node.labels?.length > 0 && (
-					<Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: "wrap", gap: 0.5 }}>
-						{node.labels.map((lbl) => (
-							<Chip key={lbl} label={lbl} size="small" variant="outlined" sx={{ fontSize: 11 }} />
-						))}
-					</Stack>
-				)}
+				<NodeDetailHeader node={node} meta={meta} color={color} onClose={onClose} />
 			</CardContent>
-
 			<Divider />
-
 			<Box sx={{ flex: 1, overflow: "auto", px: 2, py: 1.5 }}>
-				{entries.length === 0 ? (
-					<Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: "center" }}>
-						Sin propiedades disponibles
-					</Typography>
-				) : (
-					<Stack spacing={1.5}>
-						{entries.map(([key, value]) => {
-							const formatted = formatPropValue(key, value, obfuscate, visibleChars, visibleLastChars, maskChar);
-							const isUrl = key.toLowerCase().includes("url") && typeof formatted === "string" && formatted.startsWith("HTTP");
-							return (
-								<Box key={key}>
-									<Typography variant="caption" color="text.disabled" sx={{ fontSize: 11 }}>
-										{PROPERTY_LABELS[key] || key.replace(/_/g, " ")}
-									</Typography>
-									{isUrl ? (
-										<Typography
-											variant="body2"
-											component="a"
-											href={formatted}
-											target="_blank"
-											rel="noopener noreferrer"
-											sx={{ display: "block", wordBreak: "break-all", color: "primary.main" }}
-										>
-											Ver en SECOP
-										</Typography>
-									) : (
-										<Typography
-											variant="body2"
-											sx={{ wordBreak: "break-word", fontWeight: key.toLowerCase().includes("valor") ? 600 : 400 }}
-										>
-											{formatted}
-										</Typography>
-									)}
-								</Box>
-							);
-						})}
-					</Stack>
-				)}
+				<NodeDetailBody entries={entries} />
 			</Box>
 		</Card>
+	);
+}
+
+function NodeDetailDialog({ node, open, onClose }) {
+	const presentation = useNodePresentation(node || { properties: {} });
+	if (!node) return null;
+	const { meta, color, entries } = presentation;
+	return (
+		<Dialog
+			open={open}
+			onClose={onClose}
+			maxWidth="sm"
+			fullWidth
+			scroll="paper"
+			PaperProps={{ sx: { borderTop: 3, borderColor: color } }}
+		>
+			<DialogTitle sx={{ pb: 1.5 }}>
+				<NodeDetailHeader node={node} meta={meta} color={color} onClose={onClose} />
+			</DialogTitle>
+			<Divider />
+			<DialogContent sx={{ pt: 2 }}>
+				<NodeDetailBody entries={entries} />
+				{node.id != null && (
+					<Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 2, fontFamily: "monospace", fontSize: 10 }}>
+						ID interno: {String(node.id)}
+					</Typography>
+				)}
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -395,11 +443,19 @@ function GraphCanvas({ fgRef, graphData, height, paintNode, onNodeClick, activeG
 }
 
 // ─── Main export ────────────────────────────────────────────────────
-export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeId }) {
+export function GraphViewer({
+	data,
+	height = 500,
+	sx,
+	onNodeClick,
+	selectedNodeId,
+	showNodeDetailDialog = false,
+}) {
 	const fgRef = useRef();
 	const fgExpandedRef = useRef();
 	const [expanded, setExpanded] = useState(false);
 	const [detailNode, setDetailNode] = useState(null);
+	const [dialogNode, setDialogNode] = useState(null);
 	const { obfuscate, visibleChars, maskChar } = usePrivacy();
 
 	const graphData = useMemo(() => ({
@@ -413,15 +469,19 @@ export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeI
 		return [...groups].filter((g) => g && NODE_COLORS[g]);
 	}, [graphData.nodes]);
 
-	const handleInlineNodeClick = useCallback(
-		(node) => { if (onNodeClick) onNodeClick(node); },
-		[onNodeClick],
-	);
+	const handleInlineNodeClick = useCallback((node) => {
+		if (showNodeDetailDialog) setDialogNode(node);
+		if (onNodeClick) onNodeClick(node);
+	}, [onNodeClick, showNodeDetailDialog]);
 
 	const handleExpandedNodeClick = useCallback((node) => {
-		setDetailNode((prev) => (prev?.id === node.id ? null : node));
+		if (showNodeDetailDialog) {
+			setDialogNode(node);
+		} else {
+			setDetailNode((prev) => (prev?.id === node.id ? null : node));
+		}
 		if (onNodeClick) onNodeClick(node);
-	}, [onNodeClick]);
+	}, [onNodeClick, showNodeDetailDialog]);
 
 	const paintNode = useCallback((node, ctx, globalScale) => {
 		const rawLabel = getNodeLabel(node);
@@ -430,7 +490,7 @@ export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeI
 			? maskName(rawLabel, visibleChars, maskChar)
 			: rawLabel;
 		const fontSize = Math.max(10 / globalScale, 2);
-		const isSelected = node.id === selectedNodeId || node.id === detailNode?.id;
+		const isSelected = node.id === selectedNodeId || node.id === detailNode?.id || node.id === dialogNode?.id;
 		const radius = Math.max(5, Math.min(12, 4 + (node.val || 1))) * (isSelected ? 1.4 : 1);
 
 		if (isSelected) {
@@ -461,7 +521,7 @@ export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeI
 			const shortLabel = label.length > maxLen ? label.slice(0, maxLen - 3) + "…" : label;
 			ctx.fillText(shortLabel, node.x, node.y + radius + 2);
 		}
-	}, [selectedNodeId, detailNode?.id, obfuscate, visibleChars, maskChar]);
+	}, [selectedNodeId, detailNode?.id, dialogNode?.id, obfuscate, visibleChars, maskChar]);
 
 	if (!graphData.nodes.length) {
 		return (
@@ -560,6 +620,15 @@ export function GraphViewer({ data, height = 500, sx, onNodeClick, selectedNodeI
 					)}
 				</DialogContent>
 			</Dialog>
+
+			{/* Node detail dialog (opt-in) — shown over inline and fullscreen graphs */}
+			{showNodeDetailDialog && (
+				<NodeDetailDialog
+					node={dialogNode}
+					open={!!dialogNode}
+					onClose={() => setDialogNode(null)}
+				/>
+			)}
 		</>
 	);
 }
